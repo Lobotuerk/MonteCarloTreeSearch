@@ -82,13 +82,7 @@ PYBIND11_MODULE(pymcts, m) {
              py::arg("enemy_move") = nullptr, py::return_value_policy::reference)
         .def("get_current_state", &SafeMCTS_agent::get_current_state, 
              "Get the current game state", py::return_value_policy::reference)
-        .def("feedback", &SafeMCTS_agent::feedback, "Print feedback about the agent's thinking")
-        .def("set_rollout_threads", [](SafeMCTS_agent& self, unsigned int num_threads) {
-            MCTS_node::set_rollout_threads(num_threads);
-        }, "Set the number of parallel rollout threads", py::arg("num_threads"))
-        .def("get_rollout_threads", []() {
-            return MCTS_node::get_rollout_threads();
-        }, "Get the current number of parallel rollout threads");
+        .def("feedback", &SafeMCTS_agent::feedback, "Print feedback about the agent's thinking");
 
     // TicTacToe example implementation
     py::class_<TicTacToe_move, MCTS_move>(m, "TicTacToe_move")

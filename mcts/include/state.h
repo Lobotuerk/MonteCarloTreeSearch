@@ -34,6 +34,21 @@ public:
         cout << "Printing not implemented" << endl;
     }
     virtual bool player1_turn() const = 0;     // MCTS is for two-player games mostly -> (keeps win rate)
+    
+    // Heuristic rollout support (optional override)
+    virtual double heuristic_rollout() const {
+        return rollout();  // Default to random rollout
+    }
+    
+    // Move evaluation heuristic (optional override)
+    virtual double evaluate_move(const MCTS_move* move) const {
+        return 0.0;  // Default: no preference
+    }
+    
+    // Position evaluation heuristic (optional override)
+    virtual double evaluate_position() const {
+        return 0.5;  // Default: neutral position
+    }
 };
 
 

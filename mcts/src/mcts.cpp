@@ -3,6 +3,7 @@
 #include <cmath>
 #include <ctime>
 #include <algorithm>
+#include <random>
 #include "../include/mcts.h"
 
 #define DEBUG
@@ -10,6 +11,9 @@
 
 using namespace std;
 
+/*** STATIC MEMBER DEFINITIONS ***/
+RolloutStrategy MCTS_node::rollout_strategy = RolloutStrategy::RANDOM;
+double MCTS_node::heuristic_ratio = 0.5;
 
 /*** MCTS NODE ***/
 MCTS_node::MCTS_node(MCTS_node *parent, MCTS_state *state, const MCTS_move *move)
@@ -55,12 +59,16 @@ void MCTS_node::expand() {
 }
 
 void MCTS_node::rollout() {
+    rollout_with_strategy(rollout_strategy);
+}
+
+void MCTS_node::rollout_with_strategy(RolloutStrategy strategy) {
 #ifdef PARALLEL_ROLLOUTS
-    // schedule Jobs
+    // schedule Jobs with the specified strategy
     static JobScheduler scheduler;               // static so that we don't create new threads every time (!)
     double results[NUMBER_OF_THREADS]{-1};
     for (int i = 0 ; i < NUMBER_OF_THREADS ; i++) {
-        scheduler.schedule(new RolloutJob(state, &results[i]));
+        scheduler.schedule(new RolloutJob(state, &results[i], strategy));
     }
     // wait for all simulations to finish
     scheduler.waitUntilJobsHaveFinished();
@@ -75,7 +83,27 @@ void MCTS_node::rollout() {
     }
     backpropagate(score_sum, NUMBER_OF_THREADS);
 #else
-    double w = state->rollout();
+    double w;
+    switch (strategy) {
+        case RolloutStrategy::HEURISTIC:
+            w = state->heuristic_rollout();
+            break;
+        case RolloutStrategy::MIXED:
+            // Use heuristic_ratio to decide which rollout to use
+            if (static_cast<double>(rand()) / RAND_MAX < heuristic_ratio) {
+                w = state->heuristic_rollout();
+            } else {
+                w = state->rollout();
+            }
+            break;
+        case RolloutStrategy::HEAVY:
+            w = state->heuristic_rollout();
+            break;
+        case RolloutStrategy::RANDOM:
+        default:
+            w = state->rollout();
+            break;
+    }
     backpropagate(w, 1);
 #endif
 }
@@ -257,6 +285,27 @@ double MCTS_node::calculate_winrate(bool player1turn) const {
     }
 }
 
+// Static configuration methods
+void MCTS_node::set_rollout_strategy(RolloutStrategy strategy) {
+    rollout_strategy = strategy;
+}
+
+RolloutStrategy MCTS_node::get_rollout_strategy() {
+    return rollout_strategy;
+}
+
+void MCTS_node::set_heuristic_ratio(double ratio) {
+    if (ratio >= 0.0 && ratio <= 1.0) {
+        heuristic_ratio = ratio;
+    } else {
+        cerr << "Warning: Heuristic ratio must be between 0.0 and 1.0" << endl;
+    }
+}
+
+double MCTS_node::get_heuristic_ratio() {
+    return heuristic_ratio;
+}
+
 void MCTS_tree::advance_tree(const MCTS_move *move) {
     MCTS_node *old_root = root;
     root = root->advance_tree(move);
@@ -310,3 +359,20 @@ MCTS_agent::~MCTS_agent() {
 }
 
 const MCTS_state *MCTS_agent::get_current_state() const { return tree->get_current_state(); }
+
+// Rollout strategy configuration methods
+void MCTS_agent::set_rollout_strategy(RolloutStrategy strategy) {
+    MCTS_node::set_rollout_strategy(strategy);
+}
+
+RolloutStrategy MCTS_agent::get_rollout_strategy() const {
+    return MCTS_node::get_rollout_strategy();
+}
+
+void MCTS_agent::set_heuristic_ratio(double ratio) {
+    MCTS_node::set_heuristic_ratio(ratio);
+}
+
+double MCTS_agent::get_heuristic_ratio() const {
+    return MCTS_node::get_heuristic_ratio();
+}

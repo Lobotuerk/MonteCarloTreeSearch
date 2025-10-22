@@ -38,6 +38,7 @@ def main():
         ("Python Inheritance (Safe)", ["pytest", "tests/test_python_inheritance.py", "-v", "-k", "not (mcts or multiple_agents)"]),
         ("Python Games (Safe)", ["pytest", "tests/test_python_games.py", "-v", "-k", "not mcts"]),
         ("C++ TicTacToe (Basic)", ["pytest", "tests/test_cpp_tictactoe.py::TestCppTicTacToeBasic", "-v"]),
+        ("Heuristic Rollouts (Enhanced)", ["pytest", "tests/test_heuristic_rollouts.py", "-v"]),
     ]
     
     # Run standalone MCTS functionality test (outside pytest)
@@ -96,6 +97,7 @@ def main():
         print("  pytest tests/test_python_inheritance.py        # Python inheritance")
         print("  pytest tests/test_python_games.py              # Python game demos")
         print("  pytest tests/test_cpp_tictactoe.py::TestCppTicTacToeBasic  # C++ TicTacToe basic")
+        print("  pytest tests/test_heuristic_rollouts.py        # Heuristic rollout enhancement")
         print("\n🚀 To run MCTS agent tests (standalone):")
         print("  python tests/test_mcts_comprehensive.py        # Full MCTS functionality")
         print("\n� Note: MCTS agent tests run outside pytest due to destructor incompatibility")

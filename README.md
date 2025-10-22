@@ -26,6 +26,13 @@ This project contains a fast **C++** implementation of the vanilla MCTS algorith
 - **Hardware Detection**: Automatic CPU core detection and optimization
 - **Memory Management**: Improved C++ object lifecycle and cleanup
 
+### 🧠 **Heuristic Rollout Enhancement**
+- **Smart Rollouts**: Enhanced simulations using domain knowledge instead of pure random play
+- **Move Evaluation**: Quantitative assessment of move quality (0.0 to 1.0 scoring)
+- **Position Analysis**: Game state evaluation based on strategic principles
+- **Configurable Strategy**: Mix heuristic and random rollouts for optimal exploration
+- **Game-Specific Intelligence**: Win detection, threat blocking, and strategic positioning
+
 ## 🚀 Quick Start
 
 ### Python Usage (PyMCTS) - **Recommended**
@@ -68,6 +75,22 @@ class MyGameState(pymcts.MCTS_state):
         # Simulate random game to completion
         # Return score: 1.0 (Player 1 wins), 0.0 (Player 2 wins), 0.5 (draw)
         return random_simulation_result
+    
+    # Optional: Enhanced heuristic rollout for smarter play
+    def heuristic_rollout(self):
+        # Simulate game using domain knowledge
+        # Prioritize: Win > Block > Strategic positions > Random
+        return smart_simulation_result
+    
+    def evaluate_move(self, move):
+        # Optional: Evaluate move quality (0.0 to 1.0)
+        # Higher scores for better moves
+        return move_quality_score
+    
+    def evaluate_position(self):
+        # Optional: Evaluate current position (0.0 to 1.0)
+        # 1.0 = favorable for Player 1, 0.0 = favorable for Player 2
+        return position_score
     
     def is_terminal(self):
         # Return True if game is over
@@ -513,6 +536,79 @@ class AbstractGameState(pymcts.MCTS_state):
         super().__init__()
         self.position = self.initial_position()
         self.move_history = []
+```
+
+### 🧠 **Enhanced Rollouts with Heuristics**
+
+Beyond random simulation, you can implement intelligent rollouts using domain knowledge:
+
+#### **Heuristic Rollout Interface**
+```python
+class SmartGameState(pymcts.MCTS_state):
+    def heuristic_rollout(self):
+        """Smart simulation using game knowledge (optional)"""
+        while not self.is_terminal():
+            # Use evaluate_move() to pick good moves
+            best_move = self.choose_smart_move()
+            self = self.next_state(best_move)
+        return self.get_reward()
+    
+    def evaluate_move(self, move):
+        """Rate move quality: 0.0 (bad) to 1.0 (excellent)"""
+        # Implement your move evaluation logic
+        return self.calculate_move_value(move)
+    
+    def evaluate_position(self):
+        """Rate current position: 0.0 (losing) to 1.0 (winning)"""
+        # Implement your position evaluation
+        return self.calculate_position_strength()
+```
+
+#### **TicTacToe Heuristic Example**
+```python
+class TicTacToeHeuristic(pymcts.MCTS_state):
+    def heuristic_rollout(self):
+        while not self.is_terminal():
+            moves = self.actions_to_try()
+            
+            # 1. Try to win immediately
+            for move in moves:
+                if self.creates_win(move):
+                    self = self.next_state(move)
+                    break
+            else:
+                # 2. Block opponent wins
+                for move in moves:
+                    if self.blocks_opponent_win(move):
+                        self = self.next_state(move)
+                        break
+                else:
+                    # 3. Take center, then corners, then edges
+                    preferred = self.prioritize_moves(moves)
+                    self = self.next_state(preferred[0])
+        
+        return 1.0 if self.player1_wins() else 0.0
+    
+    def evaluate_move(self, move):
+        """Rate TicTacToe moves by strategic value"""
+        if self.creates_win(move): return 1.0
+        if self.blocks_opponent_win(move): return 0.9
+        if self.is_center(move): return 0.7
+        if self.is_corner(move): return 0.6
+        return 0.3  # Edge positions
+```
+
+#### **Configure Rollout Strategy**
+```python
+# Set global rollout strategy (C++ level)
+pymcts.setRolloutStrategy('HEURISTIC')  # Pure heuristic
+pymcts.setRolloutStrategy('MIXED')      # 70% heuristic, 30% random
+pymcts.setRolloutStrategy('HEAVY')      # 90% heuristic, 10% random
+pymcts.setRolloutStrategy('RANDOM')     # Default: pure random
+
+# Use in your MCTS agent
+agent = pymcts.MCTSAgent(smart_state, max_iter=1000)
+best_move = agent.get_action()  # Uses configured rollout strategy
 ```
 
 ### 🔗 **Next Steps**

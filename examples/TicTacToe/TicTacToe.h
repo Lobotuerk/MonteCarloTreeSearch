@@ -2,6 +2,9 @@
 #define MCTS_TICTACTOE_H
 
 #include "../../mcts/include/state.h"
+#include <deque>
+
+using namespace std;
 
 
 class TicTacToe_state : public MCTS_state {
@@ -10,6 +13,12 @@ class TicTacToe_state : public MCTS_state {
     char calculate_winner() const;
     char turn, winner;
     void change_turn();
+    
+    // Heuristic helper methods
+    int find_best_heuristic_move(TicTacToe_state* state, const deque<int>& available) const;
+    double count_winning_lines(char player) const;
+    bool can_win_line(char pos1, char pos2, char pos3, char player) const;
+    
 public:
     TicTacToe_state();
     TicTacToe_state(const TicTacToe_state &other);
@@ -21,6 +30,11 @@ public:
     double rollout() const override;                        // the rollout simulation in MCTS
     void print() const override;
     bool player1_turn() const override { return turn == 'x'; }
+    
+    // Heuristic rollout methods
+    double heuristic_rollout() const override;
+    double evaluate_move(const MCTS_move* move) const override;
+    double evaluate_position() const override;
 };
 
 

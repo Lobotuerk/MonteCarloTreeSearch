@@ -11,6 +11,14 @@
 #include <memory>
 #include <queue>
 
+// Forward declaration of RolloutStrategy
+enum class RolloutStrategy {
+    RANDOM,           // Pure random rollouts (default)
+    HEURISTIC,        // Use heuristic_rollout() method
+    MIXED,            // Mix of random and heuristic (configurable ratio)
+    HEAVY             // Deeper heuristic evaluation
+};
+
 namespace py = pybind11;
 
 /**
