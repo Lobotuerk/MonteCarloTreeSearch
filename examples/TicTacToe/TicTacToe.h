@@ -29,6 +29,7 @@ struct TicTacToe_move : public MCTS_move {
     char player;
     TicTacToe_move(int x, int y, char p) : x(x), y(y), player(p) {}
     bool operator==(const MCTS_move& other) const override;
+    std::string sprint() const override;
 };
 
 #endif

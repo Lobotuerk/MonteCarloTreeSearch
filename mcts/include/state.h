@@ -3,6 +3,8 @@
 
 #include <stdexcept>
 #include <queue>
+#include <iostream>
+#include <string>
 
 
 using namespace std;

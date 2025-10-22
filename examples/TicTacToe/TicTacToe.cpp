@@ -1,6 +1,9 @@
 #include <iostream>
 #include "TicTacToe.h"
 #include <ctime>
+#include <string>
+#include <random>
+#include <thread>
 
 
 using namespace std;
@@ -24,7 +27,7 @@ TicTacToe_state::TicTacToe_state(const TicTacToe_state &other)
 }
 
 bool TicTacToe_state::player_won(char player) const {
-    if (player != 'x' and player != 'o') cerr << "Warning: check winner for unknown player" << endl;
+    if (player != 'x' && player != 'o') cerr << "Warning: check winner for unknown player" << endl;
     for (int i = 0 ; i < 3 ; i++) {
         if (board[i][0] == player && board[i][1] == player && board[i][2] == player) return true;
         if (board[0][i] == player && board[1][i] == player && board[2][i] == player) return true;
@@ -83,14 +86,19 @@ double TicTacToe_state::rollout() const {
     long long r;
     int a;
     TicTacToe_state *curstate = (TicTacToe_state *) this;   // TODO: ignore const...
-    srand(time(NULL));
+    
+    // Thread-safe random number generation
+    static thread_local std::random_device rd;
+    static thread_local std::mt19937 gen(rd());
+    
     bool first = true;
     do {
         if (available.empty()) {
             cerr << "Warning: Ran out of available moves and state is not terminal?";
             return 0.0;
         }
-        r = rand() % available.size();
+        std::uniform_int_distribution<> dis(0, available.size() - 1);
+        r = dis(gen);
         a = available[r];
         TicTacToe_move move(a / 3, a % 3, curstate->turn);
         available.erase(available.begin() + r);    // delete from available moves
@@ -130,4 +138,8 @@ char TicTacToe_state::calculate_winner() const {
 bool TicTacToe_move::operator==(const MCTS_move &other) const {
     const TicTacToe_move &o = (const TicTacToe_move &) other;        // Note: Casting necessary
     return x == o.x && y == o.y && player == o.player;
+}
+
+std::string TicTacToe_move::sprint() const {
+    return std::string("(") + std::to_string(x) + "," + std::to_string(y) + "," + player + ")";
 }
