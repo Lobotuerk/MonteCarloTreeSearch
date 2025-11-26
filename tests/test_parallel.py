@@ -60,7 +60,7 @@ class TestParallelBasicFunctionality:
             
             # Test that basic operations still work
             assert not tictactoe_state.is_terminal()
-            assert tictactoe_state.player1_turn()
+            assert tictactoe_state.is_self_side_turn()
             
             moves = tictactoe_state.actions_to_try()
             assert len(moves) > 0
@@ -69,7 +69,7 @@ class TestParallelBasicFunctionality:
             if moves:
                 new_state = tictactoe_state.next_state(moves[0])
                 assert new_state is not None
-                assert not new_state.player1_turn()  # Should switch players
+                assert not new_state.is_self_side_turn()  # Should switch players
 
 
 # Working MCTS agent tests - issue was incorrect constructor syntax

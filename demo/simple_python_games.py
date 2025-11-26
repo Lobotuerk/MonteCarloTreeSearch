@@ -29,6 +29,10 @@ class CoinFlipState(pymcts.MCTS_state):
         self.player2_score = player2_score
         self.turn = turn  # 1 or 2
     
+    def clone(self):
+        """Create a deep copy of this state"""
+        return CoinFlipState(self.guesses_left, self.player1_score, self.player2_score, self.turn)
+    
     def actions_to_try(self):
         if self.is_terminal():
             return []
@@ -70,13 +74,14 @@ class CoinFlipState(pymcts.MCTS_state):
     def is_terminal(self) -> bool:
         return self.guesses_left <= 0
     
-    def player1_turn(self) -> bool:
-        return self.turn == 1
+    def is_self_side_turn(self) -> bool:
+        """Check if it's the self side's turn"""
+        return self.turn == 1  # Player 1 is the 'self' side
     
-    def print(self):
-        print(f"Guesses left: {self.guesses_left}")
-        print(f"Score - Player 1: {self.player1_score}, Player 2: {self.player2_score}")
-        print(f"Current turn: Player {self.turn}")
+    def print(self) -> None:
+        """Print the current game state"""
+        print(f"Coin Flip Game: Player 1 score: {self.player1_score}, Player 2 score: {self.player2_score}, Guesses left: {self.guesses_left}, Turn: Player {self.turn}")
+    
 
 # Example 2: Number Guessing Game
 class GuessMove(pymcts.MCTS_move):
@@ -98,6 +103,12 @@ class NumberGuessingState(pymcts.MCTS_state):
         self.max_val = max_val
         self.turn = turn
         self.winner = None
+    
+    def clone(self):
+        """Create a deep copy of this state"""
+        new_state = NumberGuessingState(self.target, self.min_val, self.max_val, self.turn)
+        new_state.winner = self.winner
+        return new_state
     
     def actions_to_try(self):
         if self.is_terminal():
@@ -150,15 +161,17 @@ class NumberGuessingState(pymcts.MCTS_state):
     def is_terminal(self) -> bool:
         return self.winner is not None or self.min_val > self.max_val
     
-    def player1_turn(self) -> bool:
-        return self.turn == 1
+    def is_self_side_turn(self) -> bool:
+        """Check if it's the self side's turn"""
+        return self.turn == 1  # Player 1 is the 'self' side
     
-    def print(self):
-        print(f"Target: {self.target} (hidden)")
-        print(f"Range: {self.min_val} to {self.max_val}")
-        print(f"Current turn: Player {self.turn}")
+    def print(self) -> None:
+        """Print the current game state"""
         if self.winner:
-            print(f"Winner: Player {self.winner}")
+            print(f"Number Guessing Game: Winner is Player {self.winner}!")
+        else:
+            print(f"Number Guessing Game: Range [{self.min_val}-{self.max_val}], Target: {self.target}, Turn: Player {self.turn}")
+    
 
 def test_simple_games():
     """Test the simple Python-implemented games"""
@@ -169,7 +182,9 @@ def test_simple_games():
     coin_state = CoinFlipState()
     coin_state.print()
     
-    agent = pymcts.MCTS_agent(coin_state, max_iter=100, max_seconds=1)
+    # Wrap the Python state with SerializedPythonState for MCTS compatibility
+    wrapped_coin_state = pymcts.SerializedPythonState(coin_state)
+    agent = pymcts.MCTS_agent(wrapped_coin_state, max_iter=100, max_seconds=1)
     move = agent.genmove(None)
     print(f"MCTS chose: {move}")
     
@@ -178,7 +193,9 @@ def test_simple_games():
     guess_state = NumberGuessingState(target=7)  # Known target for testing
     guess_state.print()
     
-    agent2 = pymcts.MCTS_agent(guess_state, max_iter=100, max_seconds=1)
+    # Wrap the Python state with SerializedPythonState for MCTS compatibility
+    wrapped_guess_state = pymcts.SerializedPythonState(guess_state)
+    agent2 = pymcts.MCTS_agent(wrapped_guess_state, max_iter=100, max_seconds=1)
     move2 = agent2.genmove(None)
     print(f"MCTS chose: {move2}")
     

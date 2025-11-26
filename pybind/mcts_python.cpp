@@ -16,8 +16,9 @@ using namespace std;
 unsigned int MCTS_node::num_rollout_threads = DEFAULT_NUMBER_OF_THREADS;
 
 /*** MCTS NODE ***/
-MCTS_node::MCTS_node(MCTS_node *parent, MCTS_state *state, const MCTS_move *move)
-        : parent(parent), state(state), move(move), score(0.0), number_of_simulations(0), size(0) {
+MCTS_node::MCTS_node(MCTS_node *parent, MCTS_state *state, const MCTS_move *move, bool owns_state)
+        : parent(parent), state(state->clone()), move(move), score(0.0), number_of_simulations(0), size(0), 
+          owns_state(true) {
     children = new vector<MCTS_node *>();
     children->reserve(STARTING_NUMBER_OF_CHILDREN);
     untried_actions = state->actions_to_try();
@@ -25,7 +26,7 @@ MCTS_node::MCTS_node(MCTS_node *parent, MCTS_state *state, const MCTS_move *move
 }
 
 MCTS_node::~MCTS_node() {
-    delete state;
+    delete state;  // Always owned by C++
     delete move;
     for (auto *child : *children) {
         delete child;
@@ -51,7 +52,7 @@ void MCTS_node::expand() {
     untried_actions->pop();                              // remove it
     MCTS_state *next_state = state->next_state(next_move);
     // build a new MCTS node from it
-    MCTS_node *new_node = new MCTS_node(this, next_state, next_move);
+    MCTS_node *new_node = new MCTS_node(this, next_state, next_move, true);  // Try to own, constructor will decide
     // rollout, updating its stats
     new_node->rollout();
     // add new node to tree
@@ -142,8 +143,8 @@ MCTS_node *MCTS_node::select_best_child(double c) const {
         MCTS_node *argmax = NULL;
         for (auto *child : *children) {
             double winrate = child->score / ((double) child->number_of_simulations);
-            // If its the opponent's move apply UCT based on his winrate i.e. our loss rate.   <-------
-            if (!state->player1_turn()){
+            // If it's not the self side's turn, apply UCT based on opponent winrate (our loss rate)
+            if (!state->is_self_side_turn()){
                 winrate = 1.0 - winrate;
             }
             if (c > 0) {
@@ -178,7 +179,7 @@ MCTS_node *MCTS_node::advance_tree(const MCTS_move *m) {
         // Note: UCT may lead to not fully explored tree even for short-term children due to terminal nodes being chosen
         cout << "INFO: Didn't find child node. Had to start over." << endl;
         MCTS_state *next_state = state->next_state(m);
-        next = new MCTS_node(NULL, next_state, NULL);
+        next = new MCTS_node(NULL, next_state, NULL, true);  // Try to own, constructor will decide
     } else {
         next->parent = NULL;     // make parent NULL
         // IMPORTANT: m and next->move can be the same here if we pass the move from select_best_child()
@@ -203,7 +204,7 @@ MCTS_node *MCTS_tree::select(double c) {
 
 MCTS_tree::MCTS_tree(MCTS_state *starting_state) {
     assert(starting_state != NULL);
-    root = new MCTS_node(NULL, starting_state, NULL);
+    root = new MCTS_node(NULL, starting_state, NULL, false);  // Don't own the starting state
 }
 
 MCTS_tree::~MCTS_tree() {
@@ -272,9 +273,9 @@ void MCTS_node::print_stats() const {
          << "Tree size: " << size << endl
          << "Number of simulations: " << number_of_simulations << endl
          << "Branching factor at root: " << children->size() << endl
-         << "Chances of P1 winning: " << setprecision(4) << 100.0 * (score / number_of_simulations) << "%" << endl;
-    // sort children based on winrate of player's turn for this node (!)
-    if (state->player1_turn()) {
+         << "Chances of self side winning: " << setprecision(4) << 100.0 * (score / number_of_simulations) << "%" << endl;
+    // sort children based on winrate of current player's turn for this node
+    if (state->is_self_side_turn()) {
         std::sort(children->begin(), children->end(), [](const MCTS_node *n1, const MCTS_node *n2){
             return n1->calculate_winrate(true) > n2->calculate_winrate(true);
         });
@@ -287,7 +288,7 @@ void MCTS_node::print_stats() const {
     cout << "Best moves:" << endl;
     for (int i = 0 ; i < children->size() && i < TOPK ; i++) {
         cout << "  " << i + 1 << ". " << children->at(i)->move->sprint() << "  -->  "
-             << setprecision(4) << 100.0 * children->at(i)->calculate_winrate(state->player1_turn()) << "%" << endl;
+             << setprecision(4) << 100.0 * children->at(i)->calculate_winrate(state->is_self_side_turn()) << "%" << endl;
     }
     cout << "________________________________" << endl;
 }

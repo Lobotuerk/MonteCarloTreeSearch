@@ -33,13 +33,14 @@ class MCTS_node {
     vector<MCTS_node *> *children;
     MCTS_node *parent;
     queue<MCTS_move *> *untried_actions;
+    bool owns_state;                    // true if this node should delete the state in destructor
     void backpropagate(double w, int n);
     
     // Configuration for parallel rollouts
     static unsigned int num_rollout_threads;
     
 public:
-    MCTS_node(MCTS_node *parent, MCTS_state *state, const MCTS_move *move);
+    MCTS_node(MCTS_node *parent, MCTS_state *state, const MCTS_move *move, bool owns_state = true);
     ~MCTS_node();
     bool is_fully_expanded() const;
     bool is_terminal() const;

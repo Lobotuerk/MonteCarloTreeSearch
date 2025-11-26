@@ -209,44 +209,11 @@ class EnhancedTicTacToeState(pymcts.MCTS_state):
         """Check if game is over"""
         return self.winner is not None
     
-    def player1_turn(self) -> bool:
-        """Check if it's Player X's turn"""
+    def is_self_side_turn(self) -> bool:
+        """Check if it's the self side's turn"""
         return self.current_player == 'X'
     
-    def _calculate_winner(self):
-        """Calculate current winner"""
-        # Check rows
-        for row in self.board:
-            if row[0] == row[1] == row[2] != ' ':
-                return row[0]
-        
-        # Check columns
-        for col in range(3):
-            if self.board[0][col] == self.board[1][col] == self.board[2][col] != ' ':
-                return self.board[0][col]
-        
-        # Check diagonals
-        if self.board[0][0] == self.board[1][1] == self.board[2][2] != ' ':
-            return self.board[0][0]
-        if self.board[0][2] == self.board[1][1] == self.board[2][0] != ' ':
-            return self.board[0][2]
-        
-        # Check for draw
-        if all(self.board[i][j] != ' ' for i in range(3) for j in range(3)):
-            return 'D'  # Draw
-        
-        return None  # Game ongoing
     
-    def print(self):
-        """Print the board"""
-        print("   0   1   2")
-        for i in range(3):
-            print(f"{i}  {self.board[i][0]} | {self.board[i][1]} | {self.board[i][2]} ")
-            if i < 2:
-                print("  -----------")
-        print(f"Current player: {self.current_player}")
-        if self.winner:
-            print(f"Winner: {self.winner}")
 
 def compare_rollout_strategies():
     """Compare random vs heuristic rollouts"""

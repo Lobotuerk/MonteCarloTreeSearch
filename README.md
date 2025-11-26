@@ -6,6 +6,13 @@ This project contains a fast **C++** implementation of the vanilla MCTS algorith
 
 ## ✨ **New Features & Updates**
 
+### 🔄 **Multi-Player Support & Interface Changes**
+- **Flexible Player System**: Support for 1 vs N player scenarios beyond traditional 2-player games
+- **Minimal Interface**: Single `is_self_side_turn()` method for turn determination
+- **⚠️ BREAKING CHANGE**: `player1_turn()` method has been removed - use `is_self_side_turn()` instead
+- **Migration Required**: All existing code must be updated to use the new interface
+- **Enhanced Capabilities**: Supports battle royale, team vs team, and complex game modes
+
 ### 🎮 **Complete Python Game Implementations**
 - **Connect Four**: Full 6x7 board game with win detection and visual interface
 - **Multiple Demo Games**: Coin flip, number guessing, and more learning examples
@@ -932,6 +939,28 @@ python -m pytest tests/test_python_inheritance.py -v # Python game implementatio
 ### 🐛 **Known Issues**
 - **C++ Agent Creation**: Some Windows configurations may experience memory issues with certain C++ MCTS agent patterns (workaround: use minimal test suite)
 - **Thread Count**: Performance may degrade with excessive thread counts (recommendation: use CPU core count)
+
+### ⚠️ **Breaking Changes**
+
+**IMPORTANT**: The `player1_turn()` method has been removed. All code must be updated to use the new interface:
+
+```cpp
+// ❌ REMOVED (will cause compilation errors)
+bool player1_turn() const override;
+
+// ✅ REQUIRED (new interface)
+bool is_self_side_turn() const override;
+```
+
+**Migration Required:**
+- **All existing code** must be updated to use the new interface
+- **Compilation will fail** until migration is complete
+- **No backward compatibility** - breaking change for cleaner API
+
+**Migration Steps:**
+1. Replace `player1_turn()` with `is_self_side_turn()`
+2. Update rollout methods to return self-side win probability
+3. See [`MULTI_PLAYER_INTERFACE.md`](MULTI_PLAYER_INTERFACE.md) for examples
 
 ## 📚 Resources & Learning
 

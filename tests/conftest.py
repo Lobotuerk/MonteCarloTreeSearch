@@ -65,8 +65,12 @@ class SimpleState(pymcts.MCTS_state):
     def is_terminal(self):
         return self.moves_made >= 3
     
-    def player1_turn(self):
+    def is_self_side_turn(self):
         return self.turn == 0
+    
+    def clone(self):
+        """Create a deep copy of this state for C++ ownership."""
+        return SimpleState(self.turn, self.moves_made)
     
     def print(self):
         pass

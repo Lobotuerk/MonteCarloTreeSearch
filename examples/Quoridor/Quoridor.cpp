@@ -823,7 +823,7 @@ double Quoridor_state::rollout() const {
             return (s.check_winner() == 'W') ? 1.0 : 0.0;
         }
         // second check if we can call who is going to win
-        double eval = evaluate_position(s, true);
+        double eval = ::evaluate_position(s, true);
         if (eval <= 1.0 - EVALUATION_THRESHOLD && eval >= EVALUATION_THRESHOLD) {
             break;
         }
@@ -851,5 +851,5 @@ double Quoridor_state::rollout() const {
         delete m;
         #endif
     }
-    return evaluate_position(s, false);
+    return ::evaluate_position(s, false);
 }

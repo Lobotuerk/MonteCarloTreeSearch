@@ -19,8 +19,10 @@ struct MCTS_move {
 
 /** Implement all pure virtual methods. Notes:
  * - rollout() must return something in [0, 1] for UCT to work as intended and specifically
- * the winning chance of player1.
- * - player1 is determined by player1_turn()
+ * the winning chance of the self side (the side making decisions).
+ * - self side is determined by is_self_side_turn()
+ * - supports 1 vs N player scenarios where self_side competes against other_side(s)
+ * - minimal interface: only requires is_self_side_turn() for turn determination
  */
 class MCTS_state {
 public:
@@ -33,7 +35,10 @@ public:
     virtual void print() const {
         cout << "Printing not implemented" << endl;
     }
-    virtual bool player1_turn() const = 0;     // MCTS is for two-player games mostly -> (keeps win rate)
+    virtual bool is_self_side_turn() const = 0;     // true if it's the self side's turn
+    
+    // Deep copy method for C++ ownership transfer
+    virtual MCTS_state* clone() const = 0;
     
     // Heuristic rollout support (optional override)
     virtual double heuristic_rollout() const {

@@ -29,7 +29,8 @@ public:
     queue<MCTS_move *> *actions_to_try() const override;
     double rollout() const override;                        // the rollout simulation in MCTS
     void print() const override;
-    bool player1_turn() const override { return turn == 'x'; }
+    bool is_self_side_turn() const override { return turn == 'x'; }
+    MCTS_state* clone() const override { return new TicTacToe_state(*this); }
     
     // Heuristic rollout methods
     double heuristic_rollout() const override;

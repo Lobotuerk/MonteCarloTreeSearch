@@ -62,7 +62,7 @@ public:
     MCTS_node *advance_tree(const MCTS_move *m);
     const MCTS_state *get_current_state() const;
     void print_stats() const;
-    double calculate_winrate(bool player1turn) const;
+    double calculate_winrate(bool self_side_turn) const;
     
     // Static configuration methods
     static void set_rollout_strategy(RolloutStrategy strategy);

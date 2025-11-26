@@ -18,7 +18,8 @@ class TestMCTSAgentIsolated:
         test_script = '''
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+# Add the MonteCarloTreeSearch directory to Python path
+sys.path.insert(0, os.environ.get('MCTS_DIR', '.'))
 import pymcts
 
 # Test basic MCTS agent functionality
@@ -36,10 +37,13 @@ exit(0)
             script_path = f.name
         
         try:
-            # Run in subprocess
+            # Run in subprocess with environment variable
+            env = os.environ.copy()
+            env['MCTS_DIR'] = os.path.dirname(os.path.dirname(__file__))
+            
             result = subprocess.run([
                 sys.executable, script_path
-            ], capture_output=True, text=True, timeout=10, cwd=os.path.dirname(__file__))
+            ], capture_output=True, text=True, timeout=10, env=env)
             
             assert result.returncode == 0, f"Test failed: {result.stderr}"
             assert "SUCCESS" in result.stdout
@@ -53,7 +57,8 @@ exit(0)
         test_script = '''
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+# Add the MonteCarloTreeSearch directory to Python path
+sys.path.insert(0, os.environ.get('MCTS_DIR', '.'))
 import pymcts
 import time
 
@@ -86,10 +91,13 @@ exit(0)
             script_path = f.name
         
         try:
-            # Run in subprocess
+            # Run in subprocess with environment variable
+            env = os.environ.copy()
+            env['MCTS_DIR'] = os.path.dirname(os.path.dirname(__file__))
+            
             result = subprocess.run([
                 sys.executable, script_path
-            ], capture_output=True, text=True, timeout=15, cwd=os.path.dirname(__file__))
+            ], capture_output=True, text=True, timeout=15, env=env)
             
             assert result.returncode == 0, f"Test failed: {result.stderr}"
             assert "SUCCESS" in result.stdout
@@ -103,7 +111,8 @@ exit(0)
         test_script = '''
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+# Add the MonteCarloTreeSearch directory to Python path
+sys.path.insert(0, os.environ.get('MCTS_DIR', '.'))
 import pymcts
 
 # Define Python classes
@@ -138,12 +147,17 @@ class SimpleState(pymcts.MCTS_state):
     def is_terminal(self):
         return self.moves_made >= 3
     
-    def player1_turn(self):
-        return self.turn == 0
+    def is_self_side_turn(self):
+        return True
+    
+    def clone(self):
+        return SimpleState(self.turn, self.moves_made)
+    
 
-# Test Python classes with MCTS
+# Test Python classes with MCTS using SerializedPythonState wrapper
 state = SimpleState()
-agent = pymcts.MCTS_agent(state, 10, 1)
+wrapped_state = pymcts.SerializedPythonState(state)
+agent = pymcts.MCTS_agent(wrapped_state, 10, 1)
 move = agent.genmove(None)
 
 print(f"SUCCESS: Python inheritance works! Move: {move.sprint()}")
@@ -156,10 +170,13 @@ exit(0)
             script_path = f.name
         
         try:
-            # Run in subprocess
+            # Run in subprocess with environment variable
+            env = os.environ.copy()
+            env['MCTS_DIR'] = os.path.dirname(os.path.dirname(__file__))
+            
             result = subprocess.run([
                 sys.executable, script_path
-            ], capture_output=True, text=True, timeout=10, cwd=os.path.dirname(__file__))
+            ], capture_output=True, text=True, timeout=10, env=env)
             
             assert result.returncode == 0, f"Test failed: {result.stderr}"
             assert "SUCCESS" in result.stdout

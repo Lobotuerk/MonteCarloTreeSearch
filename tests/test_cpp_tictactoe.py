@@ -13,7 +13,7 @@ class TestCppTicTacToeBasic:
         """Test that C++ TicTacToe state can be created."""
         assert tictactoe_state is not None
         assert not tictactoe_state.is_terminal()
-        assert tictactoe_state.player1_turn()
+        assert tictactoe_state.is_self_side_turn()
         
     def test_tictactoe_moves(self, tictactoe_state):
         """Test C++ TicTacToe move generation."""
@@ -36,7 +36,7 @@ class TestCppTicTacToeBasic:
         # Make a move
         new_state = tictactoe_state.next_state(moves[0])
         assert new_state is not None
-        assert not new_state.player1_turn()  # Should switch players
+        assert not new_state.is_self_side_turn()  # Should switch players
         
         # Should have one fewer move available
         new_moves = new_state.actions_to_try()
@@ -115,7 +115,7 @@ class TestCppTicTacToeWithMCTS:
             print(f"Move {moves_played + 1}:")
             current_state.print()
             
-            if current_state.player1_turn():
+            if current_state.is_self_side_turn():
                 # MCTS agent's turn
                 agent_move = agent.genmove(None)
                 assert agent_move is not None

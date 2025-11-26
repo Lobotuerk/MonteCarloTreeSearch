@@ -11,7 +11,7 @@ import time
 sys.path.append('..')
 import pymcts
 
-class TestRunner:
+class ComprehensiveTestRunner:
     def __init__(self):
         self.tests_run = 0
         self.tests_passed = 0
@@ -61,7 +61,7 @@ def test_basic_imports():
     assert hasattr(state, 'next_state')
     assert hasattr(state, 'rollout')
     assert hasattr(state, 'is_terminal')
-    assert hasattr(state, 'player1_turn')
+    assert hasattr(state, 'is_self_side_turn')
     
     print("✓ All imports successful")
     print("✓ Basic object creation works")
@@ -72,7 +72,7 @@ def test_tictactoe_state_functionality():
     
     # Initial state tests
     assert not state.is_terminal(), "Initial state should not be terminal"
-    assert state.player1_turn(), "Player 1 should go first"
+    assert state.is_self_side_turn(), "Self side should go first"
     
     # Move generation
     moves = state.actions_to_try()
@@ -81,7 +81,7 @@ def test_tictactoe_state_functionality():
     # State transitions
     first_move = moves[0]
     new_state = state.next_state(first_move)
-    assert not new_state.player1_turn(), "Should switch to player 2"
+    assert not new_state.is_self_side_turn(), "Should switch to other side"
     
     new_moves = new_state.actions_to_try()
     assert len(new_moves) == 8, f"Expected 8 moves after first move, got {len(new_moves)}"
@@ -145,7 +145,7 @@ def test_mcts_agent_game_progression():
     while not agent.get_current_state().is_terminal() and moves_played < max_moves:
         current_state = agent.get_current_state()
         
-        if current_state.player1_turn():
+        if current_state.is_self_side_turn():
             # MCTS agent's turn
             move = agent.genmove(None)
             assert move is not None, f"Agent should generate move on turn {moves_played + 1}"
@@ -247,7 +247,7 @@ def main():
     print("This suite verifies that the MCTS library works correctly")
     print("outside of pytest environment.\n")
     
-    runner = TestRunner()
+    runner = ComprehensiveTestRunner()
     
     # Run all tests
     runner.run_test(test_basic_imports, "Basic Imports and Object Creation")

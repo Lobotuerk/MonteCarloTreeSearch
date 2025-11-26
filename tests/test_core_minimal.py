@@ -43,7 +43,7 @@ class TestTicTacToeBasic:
         state = pymcts_module.TicTacToe_state()
         assert state is not None
         assert not state.is_terminal()
-        assert state.player1_turn()
+        assert state.is_self_side_turn()
         
     def test_move_generation(self, pymcts_module):
         """Test that moves can be generated."""
@@ -60,7 +60,7 @@ class TestTicTacToeBasic:
         # Make a move
         new_state = state.next_state(moves[0])
         assert new_state is not None
-        assert not new_state.player1_turn()  # Should switch players
+        assert not new_state.is_self_side_turn()  # Should switch players
         
         # New state should have fewer moves available  
         new_moves = new_state.actions_to_try()

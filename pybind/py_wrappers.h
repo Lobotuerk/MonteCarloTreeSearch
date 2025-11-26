@@ -22,130 +22,171 @@ enum class RolloutStrategy {
 namespace py = pybind11;
 
 /**
- * Trampoline class for MCTS_move to enable Python inheritance
+ * Internal C++ move wrapper that stores Python move data
+ * This allows C++ MCTS to work with moves without exposing Python objects
  */
-class PyMCTS_move : public MCTS_move {
+class PythonMoveWrapper : public MCTS_move {
+private:
+    py::object python_move;  // Keep the Python move alive
+    std::string move_string; // Cached string representation
+    
+public:
+    PythonMoveWrapper(py::object py_move) : python_move(py_move) {
+        try {
+            move_string = py_move.attr("sprint")().cast<std::string>();
+        } catch (const std::exception& e) {
+            move_string = "PythonMove";
+        }
+    }
+    
+    bool operator==(const MCTS_move& other) const override {
+        const PythonMoveWrapper* other_wrapper = dynamic_cast<const PythonMoveWrapper*>(&other);
+        if (other_wrapper) {
+            try {
+                // Use Python's __eq__ method for comparison
+                return python_move.attr("__eq__")(other_wrapper->python_move).cast<bool>();
+            } catch (const std::exception& e) {
+                return false;
+            }
+        }
+        return false;
+    }
+    
+    std::string sprint() const override {
+        return move_string;
+    }
+    
+    py::object get_python_move() const {
+        return python_move;
+    }
+};
+
+/**
+ * C++ state class that holds a Python game state object
+ * This enables full C++ ownership while preserving Python game logic
+ */
+class SerializedPythonState : public MCTS_state {
+private:
+    py::object python_state;  // Store the Python state object
+    mutable std::vector<py::object> cached_python_moves; // Keep Python moves alive
+    
+public:
+    SerializedPythonState(py::object python_state);
+    ~SerializedPythonState() override = default;
+    
+    // MCTS_state interface
+    std::queue<MCTS_move*>* actions_to_try() const override;
+    MCTS_state* next_state(const MCTS_move* move) const override;
+    double rollout() const override;
+    bool is_terminal() const override;
+    void print() const override;
+    bool is_self_side_turn() const override;
+    MCTS_state* clone() const override;
+    
+    // Helper to find original Python move from C++ pointer
+    py::object find_python_move(const MCTS_move* cpp_move) const;
+};
+
+namespace py = pybind11;
+
+/**
+ * Trampoline class for MCTS_move to enable Python inheritance
+ * Uses py::trampoline_self_life_support for safe lifetime management
+ */
+class PyMCTS_move : public MCTS_move, public py::trampoline_self_life_support {
 public:
     using MCTS_move::MCTS_move;
 
     bool operator==(const MCTS_move& other) const override {
-        try {
-            py::function override_func = py::get_override(this, "__eq__");
-            if (override_func) {
-                return override_func(&other).cast<bool>();
-            }
-        } catch (const std::exception& e) {
-            // Fallback
-        }
-        return false;  // Default fallback
+        PYBIND11_OVERRIDE_PURE(
+            bool,           /* Return type */
+            MCTS_move,      /* Parent class */
+            operator==,     /* Name of function in C++ (must match Python name) */
+            other           /* Arguments */
+        );
     }
 
     std::string sprint() const override {
-        try {
-            py::function override_func = py::get_override(this, "sprint");
-            if (override_func) {
-                return override_func().cast<std::string>();
-            }
-        } catch (const std::exception& e) {
-            // Fallback
-        }
-        return "Move";  // Default fallback
+        PYBIND11_OVERRIDE_PURE(
+            std::string,    /* Return type */
+            MCTS_move,      /* Parent class */
+            sprint,         /* Name of function in C++ (must match Python name) */
+                            /* No arguments for this function */
+        );
     }
 };
 
 /**
  * Trampoline class for MCTS_state to enable Python inheritance
+ * Uses py::trampoline_self_life_support for safe lifetime management
  */
-class PyMCTS_state : public MCTS_state {
+class PyMCTS_state : public MCTS_state, public py::trampoline_self_life_support {
 public:
     using MCTS_state::MCTS_state;
 
     ~PyMCTS_state() override = default;
 
     std::queue<MCTS_move*>* actions_to_try() const override {
-        try {
-            // Call Python method that returns a list of moves
-            py::function override_func = py::get_override(this, "actions_to_try");
-            if (override_func) {
-                py::list py_moves = override_func();
-                
-                // Convert Python list to C++ queue
-                std::queue<MCTS_move*>* queue = new std::queue<MCTS_move*>();
-                for (auto item : py_moves) {
-                    MCTS_move* move = item.cast<MCTS_move*>();
-                    queue->push(move);
-                }
-                return queue;
-            }
-        } catch (const std::exception& e) {
-            // Fallback - return empty queue
-            return new std::queue<MCTS_move*>();
-        }
-        return new std::queue<MCTS_move*>();
+        PYBIND11_OVERRIDE_PURE(
+            std::queue<MCTS_move*>*,  /* Return type */
+            MCTS_state,               /* Parent class */
+            actions_to_try,           /* Name of function in C++ (must match Python name) */
+                                      /* No arguments */
+        );
     }
 
     MCTS_state* next_state(const MCTS_move* move) const override {
-        try {
-            // Call Python method that returns a new state
-            py::function override_func = py::get_override(this, "next_state");
-            if (override_func) {
-                py::object py_state = override_func(move);
-                return py_state.cast<MCTS_state*>();
-            }
-        } catch (const std::exception& e) {
-            // Fallback - return null
-            return nullptr;
-        }
-        return nullptr;
+        PYBIND11_OVERRIDE_PURE(
+            MCTS_state*,              /* Return type */
+            MCTS_state,               /* Parent class */
+            next_state,               /* Name of function in C++ (must match Python name) */
+            move                      /* Arguments */
+        );
     }
-
+    
     double rollout() const override {
-        try {
-            py::function override_func = py::get_override(this, "rollout");
-            if (override_func) {
-                return override_func().cast<double>();
-            }
-        } catch (const std::exception& e) {
-            // Fallback
-        }
-        return 0.5;  // Default fallback
+        PYBIND11_OVERRIDE_PURE(
+            double,                   /* Return type */
+            MCTS_state,               /* Parent class */
+            rollout,                  /* Name of function in C++ (must match Python name) */
+                                      /* No arguments */
+        );
     }
 
     bool is_terminal() const override {
-        try {
-            py::function override_func = py::get_override(this, "is_terminal");
-            if (override_func) {
-                return override_func().cast<bool>();
-            }
-        } catch (const std::exception& e) {
-            // Fallback
-        }
-        return true;  // Default fallback
+        PYBIND11_OVERRIDE_PURE(
+            bool,                     /* Return type */
+            MCTS_state,               /* Parent class */
+            is_terminal,              /* Name of function in C++ (must match Python name) */
+                                      /* No arguments */
+        );
     }
 
     void print() const override {
-        try {
-            py::function override_func = py::get_override(this, "print");
-            if (override_func) {
-                override_func();
-                return;
-            }
-        } catch (const std::exception& e) {
-            // Fallback
-        }
-        // Default fallback - do nothing
+        PYBIND11_OVERRIDE_PURE(
+            void,                     /* Return type */
+            MCTS_state,               /* Parent class */
+            print,                    /* Name of function in C++ (must match Python name) */
+                                      /* No arguments */
+        );
     }
 
-    bool player1_turn() const override {
-        try {
-            py::function override_func = py::get_override(this, "player1_turn");
-            if (override_func) {
-                return override_func().cast<bool>();
-            }
-        } catch (const std::exception& e) {
-            // Fallback
-        }
-        return true;  // Default fallback
+    bool is_self_side_turn() const override {
+        PYBIND11_OVERRIDE_PURE(
+            bool,                     /* Return type */
+            MCTS_state,               /* Parent class */
+            is_self_side_turn,        /* Name of function in C++ (must match Python name) */
+                                      /* No arguments */
+        );
+    }
+
+    MCTS_state* clone() const override {
+        PYBIND11_OVERRIDE_PURE(
+            MCTS_state*,              /* Return type */
+            MCTS_state,               /* Parent class */
+            clone,                    /* Name of function in C++ (must match Python name) */
+                                      /* No arguments */
+        );
     }
 };
 

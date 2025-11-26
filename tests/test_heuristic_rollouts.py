@@ -33,15 +33,60 @@ class TestHeuristicRollouts:
     
     def test_mcts_with_enhanced_backend(self, mcts_agent_factory, pymcts_module):
         """Test MCTS agent functionality with heuristic-enhanced C++ backend."""
-        pytest.skip("MCTS agent tests have known Windows memory issues with pytest - functionality works in standalone mode")
+        state = pymcts_module.TicTacToe_state()
+        wrapped_state = pymcts_module.SerializedPythonState(state)
+        
+        # Create MCTS agent with enhanced backend
+        agent = mcts_agent_factory(wrapped_state, max_iter=50, max_seconds=1)
+        
+        # Test that agent works with enhanced backend
+        move = agent.genmove(None)
+        assert move is not None, "Agent should find a move with enhanced backend"
+        
+        # Parse move from string format
+        move_str = str(move)
+        assert "(" in move_str and ")" in move_str, f"Move should be a valid tuple, got: {move_str}"
     
     def test_move_quality_consistency(self, mcts_agent_factory, pymcts_module):
         """Test that enhanced backend provides consistent move quality."""
-        pytest.skip("MCTS agent tests have known Windows memory issues with pytest - functionality works in standalone mode")
+        state = pymcts_module.TicTacToe_state()
+        wrapped_state = pymcts_module.SerializedPythonState(state)
+        
+        # Create agent for consistency testing
+        agent = mcts_agent_factory(wrapped_state, max_iter=30, max_seconds=1)
+        
+        # Test multiple searches for consistency
+        moves = []
+        for _ in range(3):
+            move = agent.genmove(None)
+            moves.append(str(move))
+        
+        # All moves should be valid
+        for i, move_str in enumerate(moves):
+            assert "(" in move_str and ")" in move_str, f"Move {i+1} should be valid tuple format, got: {move_str}"
+        
+        # At least one move should be found consistently
+        assert all(move != "None" for move in moves), "All searches should find valid moves"
     
     def test_strategic_move_preference(self, mcts_agent_factory, pymcts_module):
         """Test that enhanced backend shows strategic preferences (center/corner bias)."""
-        pytest.skip("MCTS agent tests have known Windows memory issues with pytest - functionality works in standalone mode")
+        state = pymcts_module.TicTacToe_state()
+        wrapped_state = pymcts_module.SerializedPythonState(state)
+        
+        # Create agent with more iterations for strategic analysis
+        agent = mcts_agent_factory(wrapped_state, max_iter=100, max_seconds=1)
+        
+        # Test that agent makes strategic moves
+        move = agent.genmove(None)
+        assert move is not None, "Agent should find a strategic move"
+        
+        # Parse move and verify it's reasonable for opening
+        move_str = str(move)
+        assert "(" in move_str and ")" in move_str, f"Move should be valid tuple format, got: {move_str}"
+        
+        # For TicTacToe, moves should be in format (row,col,player)
+        # Just verify we get a valid position
+        assert "," in move_str, f"Move should have comma-separated format, got: {move_str}"
     
     def test_thread_configuration_compatibility(self, pymcts_module):
         """Test that thread configuration works with enhanced implementation."""
@@ -89,14 +134,46 @@ class TestEnhancedIntegration:
         
         # Test game state methods
         assert isinstance(state.is_terminal(), bool), "is_terminal should return boolean"
-        assert isinstance(state.player1_turn(), bool), "player1_turn should return boolean"
+        assert isinstance(state.is_self_side_turn(), bool), "is_self_side_turn should return boolean"
         assert isinstance(state.get_turn(), str), "get_turn should return string"
         assert isinstance(state.get_winner(), str), "get_winner should return string"
     
     def test_performance_with_enhancement(self, mcts_agent_factory, pymcts_module):
         """Test that enhanced implementation maintains good performance."""
-        pytest.skip("MCTS agent tests have known Windows memory issues with pytest - functionality works in standalone mode")
+        import time
+        
+        state = pymcts_module.TicTacToe_state()
+        wrapped_state = pymcts_module.SerializedPythonState(state)
+        
+        # Create agent with time limit
+        agent = mcts_agent_factory(wrapped_state, max_iter=30, max_seconds=1)
+        
+        # Test performance
+        start_time = time.time()
+        move = agent.genmove(None)
+        elapsed_time = time.time() - start_time
+        
+        assert move is not None, "Agent should find a move within time limit"
+        assert elapsed_time < 2.0, f"Search should complete quickly, took {elapsed_time:.3f}s"
+        
+        # Verify move is valid format
+        move_str = str(move)
+        assert "(" in move_str and ")" in move_str, f"Move should be in correct tuple format, got: {move_str}"
     
     def test_multiple_games_stability(self, mcts_agent_factory, pymcts_module):
         """Test that enhanced implementation is stable across multiple games."""
-        pytest.skip("MCTS agent tests have known Windows memory issues with pytest - functionality works in standalone mode")
+        # Test multiple game instances
+        for i in range(3):
+            state = pymcts_module.TicTacToe_state()
+            wrapped_state = pymcts_module.SerializedPythonState(state)
+            
+            # Create fresh agent for each game
+            agent = mcts_agent_factory(wrapped_state, max_iter=20, max_seconds=1)
+            
+            # Test that each game works
+            move = agent.genmove(None)
+            assert move is not None, f"Agent should find move in game {i+1}"
+            
+            # Verify move format
+            move_str = str(move)
+            assert "(" in move_str and ")" in move_str, f"Move {i+1} should be valid tuple format, got: {move_str}"

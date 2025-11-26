@@ -117,72 +117,70 @@ class ConnectFourState(pymcts.MCTS_state):
             self._terminal = self._check_terminal()
         return self._terminal
     
-    def player1_turn(self) -> bool:
-        """Required: return True if it's player 1's (X) turn"""
+    def is_self_side_turn(self) -> bool:
+        """Check if it's the self side's turn"""
         return self.current_player == 'X'
     
-    def print(self) -> None:
-        """Optional: print the game state"""
-        print("  " + " ".join(str(i) for i in range(self.cols)))
-        print("  " + "-" * (self.cols * 2 - 1))
-        for row in self.board:
-            print("| " + " ".join(row) + " |")
-        print("  " + "-" * (self.cols * 2 - 1))
-        print(f"Current player: {self.current_player}")
-    
-    def get_winner(self) -> Optional[str]:
-        """Get the winner (X, O, or None for draw/ongoing)"""
-        if self._winner is None:
-            self._winner = self._check_winner()
-        return self._winner
-    
     def _check_terminal(self) -> bool:
-        """Check if the game is over"""
+        """Check if the game is over (win or draw)"""
         # Check for winner
-        if self._check_winner() is not None:
+        if self._get_winner() is not None:
             return True
         
-        # Check if board is full
+        # Check for draw (board full)
         for col in range(self.cols):
             if self.board[0][col] == ' ':
-                return False
+                return False  # Still has empty space
         return True  # Board is full
     
-    def _check_winner(self) -> Optional[str]:
-        """Check for a winner"""
-        # Check horizontal
+    def _get_winner(self) -> Optional[str]:
+        """Check for a winner and return 'X', 'O', or None"""
+        if self._winner is not None:
+            return self._winner
+        
+        # Check all possible winning conditions
         for row in range(self.rows):
-            for col in range(self.cols - 3):
-                if (self.board[row][col] != ' ' and 
-                    self.board[row][col] == self.board[row][col+1] == 
-                    self.board[row][col+2] == self.board[row][col+3]):
-                    return self.board[row][col]
-        
-        # Check vertical
-        for row in range(self.rows - 3):
             for col in range(self.cols):
-                if (self.board[row][col] != ' ' and 
-                    self.board[row][col] == self.board[row+1][col] == 
-                    self.board[row+2][col] == self.board[row+3][col]):
-                    return self.board[row][col]
-        
-        # Check diagonal (top-left to bottom-right)
-        for row in range(self.rows - 3):
-            for col in range(self.cols - 3):
-                if (self.board[row][col] != ' ' and 
-                    self.board[row][col] == self.board[row+1][col+1] == 
-                    self.board[row+2][col+2] == self.board[row+3][col+3]):
-                    return self.board[row][col]
-        
-        # Check diagonal (top-right to bottom-left)
-        for row in range(self.rows - 3):
-            for col in range(3, self.cols):
-                if (self.board[row][col] != ' ' and 
-                    self.board[row][col] == self.board[row+1][col-1] == 
-                    self.board[row+2][col-2] == self.board[row+3][col-3]):
-                    return self.board[row][col]
+                if self.board[row][col] != ' ':
+                    player = self.board[row][col]
+                    # Check horizontal
+                    if col + 3 < self.cols:
+                        if all(self.board[row][col + i] == player for i in range(4)):
+                            self._winner = player
+                            return player
+                    
+                    # Check vertical
+                    if row + 3 < self.rows:
+                        if all(self.board[row + i][col] == player for i in range(4)):
+                            self._winner = player
+                            return player
+                    
+                    # Check diagonal (down-right)
+                    if row + 3 < self.rows and col + 3 < self.cols:
+                        if all(self.board[row + i][col + i] == player for i in range(4)):
+                            self._winner = player
+                            return player
+                    
+                    # Check diagonal (down-left)
+                    if row + 3 < self.rows and col - 3 >= 0:
+                        if all(self.board[row + i][col - i] == player for i in range(4)):
+                            self._winner = player
+                            return player
         
         return None
+    
+    def get_winner(self) -> Optional[str]:
+        """Public method to get the winner"""
+        return self._get_winner()
+    
+    def print(self) -> None:
+        """Print the current board state"""
+        print("\n  " + " ".join(str(i) for i in range(self.cols)))
+        for row in self.board:
+            print("| " + " ".join(row) + " |")
+        print("-" * (2 * self.cols + 3))
+        print(f"Current player: {self.current_player}")
+
 
 def demo_connect_four():
     """Demonstrate Connect Four implemented in pure Python"""
@@ -193,59 +191,73 @@ def demo_connect_four():
     print("Initial board:")
     state.print()
     
-    # Create MCTS agent
-    print("\nCreating MCTS agent...")
-    agent = pymcts.MCTS_agent(state, max_iter=1000, max_seconds=3)
+    print("\nStarting Connect Four game with MCTS vs Random...")
+    moves_played = 0
+    max_moves = 20
     
-    # Configure parallel rollouts
-    pymcts.set_rollout_threads(4)
-    print(f"Using {pymcts.get_rollout_threads()} parallel rollout threads")
-    
-    # Play a few moves
-    print("\n=== Game Play ===")
-    move_count = 0
-    
-    while not agent.get_current_state().is_terminal() and move_count < 10:
-        current_state = agent.get_current_state()
+    while not state.is_terminal() and moves_played < max_moves:
+        print(f"\n--- Move {moves_played + 1} ---")
+        state.print()
         
-        print(f"\n--- Move {move_count + 1} ---")
-        current_state.print()
+        current_player = state.current_player
+        print(f"Current player: {current_player}")
         
-        if current_state.player1_turn():
-            # MCTS agent's turn (X)
+        if current_player == 'X':
+            # MCTS agent's turn
             print("MCTS agent thinking...")
-            move = agent.genmove(None)
+            agent = pymcts.MCTS_agent(pymcts.SerializedPythonState(state), max_iter=500, max_seconds=5)
+            
+            move = agent.genmove()
+            
             if move:
-                print(f"MCTS chose: {move}")
+                # Convert the MCTS_move back to a ConnectFourMove
+                move_str = str(move)  # Should be "DropX@column"
+                print(f"MCTS chose: {move_str}")
+                
+                # Parse the move string to recreate the ConnectFourMove
+                # Format is "DropPLAYER@COLUMN"
+                if move_str.startswith('Drop') and '@' in move_str:
+                    parts = move_str.split('@')
+                    if len(parts) == 2:
+                        player_part = parts[0][4:]  # Remove "Drop" prefix
+                        column = int(parts[1])
+                        python_move = ConnectFourMove(column, player_part)
+                        state = state.next_state(python_move)
+                    else:
+                        print("Error: Could not parse move string")
+                        break
+                else:
+                    print("Error: Unexpected move format")
+                    break
             else:
-                print("No moves available!")
+                print("No move returned from MCTS")
                 break
         else:
-            # Random opponent (O)
-            possible_moves = current_state.actions_to_try()
-            if possible_moves:
-                opponent_move = random.choice(possible_moves)
-                print(f"Random opponent chose: {opponent_move}")
-                agent.genmove(opponent_move)
+            # Random opponent's turn (O)
+            moves = state.actions_to_try()
+            if moves:
+                random_move = random.choice(moves)
+                print(f"Random opponent chose: {random_move}")
+                state = state.next_state(random_move)
             else:
                 print("No moves available!")
                 break
         
-        move_count += 1
+        moves_played += 1
     
-    # Final state
-    final_state = agent.get_current_state()
     print("\n=== Final State ===")
-    final_state.print()
+    state.print()
     
-    if final_state.is_terminal():
-        winner = final_state.get_winner()
+    if state.is_terminal():
+        winner = state.get_winner()
         if winner:
             print(f"\n🎉 Winner: {winner}!")
         else:
             print("\n🤝 It's a draw!")
+    else:
+        print(f"\n⏰ Demo stopped after {max_moves} moves")
     
-    print(f"\nGame completed in {move_count} moves")
+    print("✅ Connect Four demo completed!")
     return True
 
 def test_connect_four_basics():
@@ -260,7 +272,7 @@ def test_connect_four_basics():
     state = ConnectFourState()
     print(f"Board size: {state.rows}x{state.cols}")
     print(f"Is terminal: {state.is_terminal()}")
-    print(f"Player 1 turn: {state.player1_turn()}")
+    print(f"Self side turn: {state.is_self_side_turn()}")
     
     # Test actions
     actions = state.actions_to_try()
@@ -270,7 +282,7 @@ def test_connect_four_basics():
     # Test making a move
     if actions:
         new_state = state.next_state(actions[0])
-        print(f"After move, player 1 turn: {new_state.player1_turn()}")
+        print(f"After move, self side turn: {new_state.is_self_side_turn()}")
     
     print("✅ Basic tests passed!")
 

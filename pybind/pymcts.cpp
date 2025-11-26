@@ -12,16 +12,16 @@
 namespace py = pybind11;
 
 PYBIND11_MODULE(pymcts, m) {
-    m.doc() = "Python bindings for Monte Carlo Tree Search C++ library";
+    m.doc() = "Python bindings for Monte Carlo Tree Search C++ library with smart_holder support";
 
-    // Abstract base classes with trampolines
-    py::class_<MCTS_move, PyMCTS_move>(m, "MCTS_move")
+    // Abstract base classes with trampolines using py::smart_holder
+    py::class_<MCTS_move, PyMCTS_move, py::smart_holder>(m, "MCTS_move")
         .def(py::init<>())
         .def("__eq__", &MCTS_move::operator==)
         .def("sprint", &MCTS_move::sprint, "Get string representation of the move")
         .def("__str__", &MCTS_move::sprint);
 
-    py::class_<MCTS_state, PyMCTS_state>(m, "MCTS_state")
+    py::class_<MCTS_state, PyMCTS_state, py::smart_holder>(m, "MCTS_state")
         .def(py::init<>())
         .def("actions_to_try", [](const MCTS_state& self) {
             // Convert queue to vector for Python
@@ -32,10 +32,11 @@ PYBIND11_MODULE(pymcts, m) {
              "Get the state that results from applying the given move",
              py::return_value_policy::take_ownership)
         .def("rollout", &MCTS_state::rollout, 
-             "Perform a random rollout simulation and return win probability for player 1")
+             "Perform a random rollout simulation and return win probability for self side")
         .def("is_terminal", &MCTS_state::is_terminal, "Check if this is a terminal state")
         .def("print", &MCTS_state::print, "Print the current state")
-        .def("player1_turn", &MCTS_state::player1_turn, "Check if it's player 1's turn");
+        .def("is_self_side_turn", &MCTS_state::is_self_side_turn, "Check if it's the self side's turn")
+        .def("clone", &MCTS_state::clone, "Create a deep copy of this state", py::return_value_policy::take_ownership);
 
     // Core MCTS classes
     py::class_<MCTS_node>(m, "MCTS_node")
@@ -53,7 +54,7 @@ PYBIND11_MODULE(pymcts, m) {
              "Get the game state represented by this node", py::return_value_policy::reference)
         .def("print_stats", &MCTS_node::print_stats, "Print statistics about this node")
         .def("calculate_winrate", &MCTS_node::calculate_winrate, 
-             "Calculate win rate for the specified player", py::arg("player1turn"));
+             "Calculate win rate for the specified side", py::arg("self_side_turn"));
 
     py::class_<MCTS_tree>(m, "MCTS_tree")
         .def(py::init<MCTS_state*>(), "Create a new MCTS tree with the given starting state",
@@ -84,8 +85,8 @@ PYBIND11_MODULE(pymcts, m) {
              "Get the current game state", py::return_value_policy::reference)
         .def("feedback", &SafeMCTS_agent::feedback, "Print feedback about the agent's thinking");
 
-    // TicTacToe example implementation
-    py::class_<TicTacToe_move, MCTS_move>(m, "TicTacToe_move")
+    // TicTacToe example implementation with py::smart_holder
+    py::class_<TicTacToe_move, MCTS_move, py::smart_holder>(m, "TicTacToe_move")
         .def(py::init<int, int, char>(), 
              "Create a TicTacToe move", py::arg("x"), py::arg("y"), py::arg("player"))
         .def_readwrite("x", &TicTacToe_move::x, "X coordinate (0-2)")
@@ -97,7 +98,7 @@ PYBIND11_MODULE(pymcts, m) {
                    std::to_string(move.y) + ", '" + move.player + "')";
         });
 
-    py::class_<TicTacToe_state, MCTS_state>(m, "TicTacToe_state")
+    py::class_<TicTacToe_state, MCTS_state, py::smart_holder>(m, "TicTacToe_state")
         .def(py::init<>(), "Create a new TicTacToe game state")
         .def(py::init<const TicTacToe_state&>(), "Copy constructor")
         .def("get_turn", &TicTacToe_state::get_turn, "Get whose turn it is ('x' or 'o')")
@@ -112,7 +113,8 @@ PYBIND11_MODULE(pymcts, m) {
         .def("rollout", &TicTacToe_state::rollout, "Perform random rollout simulation")
         .def("is_terminal", &TicTacToe_state::is_terminal, "Check if game is finished")
         .def("print", &TicTacToe_state::print, "Print the board")
-        .def("player1_turn", &TicTacToe_state::player1_turn, "Check if it's player 1's turn")
+        .def("is_self_side_turn", &TicTacToe_state::is_self_side_turn, "Check if it's the self side's turn")
+        .def("clone", &TicTacToe_state::clone, "Create a deep copy of this state", py::return_value_policy::take_ownership)
         .def("__str__", [](const TicTacToe_state& state) {
             // Capture print output for Python string representation
             std::ostringstream oss;
@@ -122,11 +124,21 @@ PYBIND11_MODULE(pymcts, m) {
             return oss.str();
         });
 
+    // Create an alias for easy access to C++ TicTacToe state
+    m.def("cpp_TicTacToeState", []() {
+        return new TicTacToe_state();
+    }, "Create a C++ TicTacToe state instance", py::return_value_policy::take_ownership);
+
     // Utility functions
     m.def("queue_to_vector", &queue_to_vector, 
           "Convert a queue of moves to a vector (for internal use)");
     m.def("vector_to_queue", &vector_to_queue, 
           "Convert a vector of moves to a queue (for internal use)");
+    
+    // Python state wrapper for seamless Python game integration
+    py::class_<SerializedPythonState, MCTS_state, py::smart_holder>(m, "SerializedPythonState")
+        .def(py::init<py::object>(), "Wrap a Python game state object for C++ MCTS",
+             py::arg("python_state"));
     
     // Thread configuration functions
     m.def("set_rollout_threads", [](unsigned int num_threads) {

@@ -114,38 +114,11 @@ class SmartTicTacToeState(pymcts.MCTS_state):
     def is_terminal(self) -> bool:
         return self.winner is not None
     
-    def player1_turn(self) -> bool:
+    def is_self_side_turn(self) -> bool:
+        """Check if it's the self side's turn"""
         return self.current_player == 'X'
     
-    def _calculate_winner(self):
-        # Check rows
-        for row in self.board:
-            if row[0] == row[1] == row[2] != ' ':
-                return row[0]
-        
-        # Check columns
-        for col in range(3):
-            if self.board[0][col] == self.board[1][col] == self.board[2][col] != ' ':
-                return self.board[0][col]
-        
-        # Check diagonals
-        if self.board[0][0] == self.board[1][1] == self.board[2][2] != ' ':
-            return self.board[0][0]
-        if self.board[0][2] == self.board[1][1] == self.board[2][0] != ' ':
-            return self.board[0][2]
-        
-        # Check for draw
-        if all(self.board[i][j] != ' ' for i in range(3) for j in range(3)):
-            return 'D'
-        
-        return None
     
-    def print(self):
-        print("   0   1   2")
-        for i in range(3):
-            print(f"{i}  {self.board[i][0]} | {self.board[i][1]} | {self.board[i][2]} ")
-            if i < 2:
-                print("  -----------")
 
 class RandomTicTacToeState(SmartTicTacToeState):
     """Pure random rollout version for comparison"""

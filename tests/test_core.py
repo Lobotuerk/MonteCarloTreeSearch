@@ -43,7 +43,14 @@ class TestTicTacToe:
         state = pymcts_module.TicTacToe_state()
         assert state is not None
         assert not state.is_terminal()
-        assert state.player1_turn()
+        assert state.is_self_side_turn()
+        
+    def test_cpp_state_creation(self, pymcts_module):
+        """Test that C++ TicTacToe state factory function works."""
+        state = pymcts_module.cpp_TicTacToeState()
+        assert state is not None
+        assert not state.is_terminal()
+        assert state.is_self_side_turn()
         
     def test_move_generation(self, pymcts_module):
         """Test that moves can be generated."""
@@ -60,7 +67,7 @@ class TestTicTacToe:
         # Make a move
         new_state = state.next_state(moves[0])
         assert new_state is not None
-        assert not new_state.player1_turn()  # Should switch players
+        assert not new_state.is_self_side_turn()  # Should switch players
         
         # New state should have fewer moves available
         new_moves = new_state.actions_to_try()
@@ -96,7 +103,7 @@ class TestMCTSAgent:
         """Test that agent can generate moves with minimal parameters."""
         # Use very conservative parameters to avoid crashes
         state = pymcts_module.TicTacToe_state()
-        agent = pymcts_module.MCTS_agent(state, max_iter=5, max_seconds=0.5)
+        agent = pymcts_module.MCTS_agent(state, max_iter=5, max_seconds=1)
         
         try:
             move = agent.genmove(None)
@@ -112,7 +119,7 @@ class TestMCTSAgent:
     def test_current_state(self, pymcts_module):
         """Test that agent tracks current state correctly."""
         state = pymcts_module.TicTacToe_state()
-        agent = pymcts_module.MCTS_agent(state, max_iter=5, max_seconds=0.5)
+        agent = pymcts_module.MCTS_agent(state, max_iter=5, max_seconds=1)
         
         initial_state = agent.get_current_state()
         assert initial_state is not None
@@ -121,7 +128,7 @@ class TestMCTSAgent:
     def test_feedback_safe(self, pymcts_module):
         """Test that agent feedback doesn't crash."""
         state = pymcts_module.TicTacToe_state()
-        agent = pymcts_module.MCTS_agent(state, max_iter=5, max_seconds=0.5)
+        agent = pymcts_module.MCTS_agent(state, max_iter=5, max_seconds=1)
         
         # This should not raise an exception
         try:

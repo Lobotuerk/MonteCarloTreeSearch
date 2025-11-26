@@ -138,8 +138,8 @@ MCTS_node *MCTS_node::select_best_child(double c) const {
         MCTS_node *argmax = NULL;
         for (auto *child : *children) {
             double winrate = child->score / ((double) child->number_of_simulations);
-            // If its the opponent's move apply UCT based on his winrate i.e. our loss rate.   <-------
-            if (!state->player1_turn()){
+            // If it's not the self side's turn, apply UCT based on opponent winrate (our loss rate)
+            if (!state->is_self_side_turn()){
                 winrate = 1.0 - winrate;
             }
             if (c > 0) {
@@ -257,9 +257,9 @@ void MCTS_node::print_stats() const {
          << "Tree size: " << size << endl
          << "Number of simulations: " << number_of_simulations << endl
          << "Branching factor at root: " << children->size() << endl
-         << "Chances of P1 winning: " << setprecision(4) << 100.0 * (score / number_of_simulations) << "%" << endl;
-    // sort children based on winrate of player's turn for this node (!)
-    if (state->player1_turn()) {
+         << "Chances of self side winning: " << setprecision(4) << 100.0 * (score / number_of_simulations) << "%" << endl;
+    // sort children based on winrate of current player's turn for this node
+    if (state->is_self_side_turn()) {
         std::sort(children->begin(), children->end(), [](const MCTS_node *n1, const MCTS_node *n2){
             return n1->calculate_winrate(true) > n2->calculate_winrate(true);
         });
@@ -272,13 +272,13 @@ void MCTS_node::print_stats() const {
     cout << "Best moves:" << endl;
     for (int i = 0 ; i < children->size() && i < TOPK ; i++) {
         cout << "  " << i + 1 << ". " << children->at(i)->move->sprint() << "  -->  "
-             << setprecision(4) << 100.0 * children->at(i)->calculate_winrate(state->player1_turn()) << "%" << endl;
+             << setprecision(4) << 100.0 * children->at(i)->calculate_winrate(state->is_self_side_turn()) << "%" << endl;
     }
     cout << "________________________________" << endl;
 }
 
-double MCTS_node::calculate_winrate(bool player1turn) const {
-    if (player1turn) {
+double MCTS_node::calculate_winrate(bool self_side_turn) const {
+    if (self_side_turn) {
         return score / number_of_simulations;
     } else {
         return 1.0 - score / number_of_simulations;
