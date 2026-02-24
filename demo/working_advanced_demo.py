@@ -217,12 +217,12 @@ def interactive_demo():
         try:
             winner = state.get_winner()
             if winner:
-                if winner == 'X' or winner == 'x':
+                if winner == 'x':
                     print("🤖 MCTS wins!")
-                else:
+                elif winner == 'o':
                     print("🎉 You win!")
-            else:
-                print("🤝 It's a draw!")
+                else:
+                    print("🤝 It's a draw!")
         except:
             print("Game completed!")
 

@@ -10,6 +10,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pymcts
 import random
+import time
 from typing import List, Optional
 
 class ConnectFourMove(pymcts.MCTS_move):
@@ -184,6 +185,123 @@ class ConnectFourState(pymcts.MCTS_state):
         print(f"Current player: {self.current_player}")
 
 
+def interactive_connect_four():
+    """Interactive Connect Four game - Human vs MCTS"""
+    print("\n🎮 Interactive Connect Four - Human vs MCTS")
+    print("=" * 60)
+    
+    # Create initial game state
+    state = ConnectFourState()
+    
+    print("\nYou are 'O' (Red), MCTS is 'X' (Yellow)")
+    print("Enter column numbers (0-6) to drop your pieces")
+    print("Type 'quit' to exit the game\n")
+    
+    # Show initial board
+    state.print()
+    
+    move_count = 0
+    
+    while not state.is_terminal():
+        current_player = state.current_player
+        
+        if current_player == 'X':
+            # MCTS agent's turn
+            print("\n🤖 MCTS is thinking...")
+            
+            try:
+                # Create MCTS agent
+                agent = pymcts.MCTS_agent(pymcts.SerializedPythonState(state), 
+                                        max_iter=1000, max_seconds=3)
+                
+                start_time = time.time()
+                move = agent.genmove()
+                think_time = time.time() - start_time
+                
+                if move:
+                    # Parse the move string to get the column
+                    move_str = str(move)
+                    if move_str.startswith('Drop') and '@' in move_str:
+                        parts = move_str.split('@')
+                        if len(parts) == 2:
+                            column = int(parts[1])
+                            python_move = ConnectFourMove(column, 'X')
+                            state = state.next_state(python_move)
+                            
+                            print(f"🎯 MCTS plays column {column} (took {think_time:.2f}s)")
+                        else:
+                            print("❌ Error: Could not parse MCTS move")
+                            break
+                    else:
+                        print("❌ Error: Unexpected move format from MCTS")
+                        break
+                else:
+                    print("❌ MCTS couldn't generate a move!")
+                    break
+                    
+            except Exception as e:
+                print(f"❌ MCTS error: {e}")
+                break
+        else:
+            # Human player's turn (O)
+            state.print()
+            
+            try:
+                # Get valid moves
+                valid_moves = state.actions_to_try()
+                if not valid_moves:
+                    print("❌ No valid moves available!")
+                    break
+                
+                valid_columns = [move.column for move in valid_moves]
+                
+                # Get human input
+                user_input = input(f"\nYour turn! Choose column ({', '.join(map(str, valid_columns))}) or 'quit': ").strip()
+                
+                if user_input.lower() == 'quit':
+                    print("👋 Thanks for playing!")
+                    return
+                
+                try:
+                    column = int(user_input)
+                    
+                    if column in valid_columns:
+                        human_move = ConnectFourMove(column, 'O')
+                        state = state.next_state(human_move)
+                        print(f"✅ You played column {column}")
+                    else:
+                        print(f"❌ Invalid column! Please choose from: {valid_columns}")
+                        continue
+                        
+                except ValueError:
+                    print("❌ Please enter a valid number or 'quit'")
+                    continue
+                    
+            except KeyboardInterrupt:
+                print("\n👋 Game interrupted. Thanks for playing!")
+                return
+        
+        move_count += 1
+        
+        # Show board after each move
+        if move_count % 2 == 0:  # Show every other move to reduce clutter
+            state.print()
+    
+    # Game over
+    print("\n🏁 Game Over!")
+    state.print()
+    
+    if state.is_terminal():
+        winner = state.get_winner()
+        if winner == 'X':
+            print("🤖 MCTS wins! Better luck next time!")
+        elif winner == 'O':
+            print("🎉 Congratulations! You beat the MCTS!")
+        else:
+            print("🤝 It's a draw! Great game!")
+    
+    print("✅ Thanks for playing Connect Four!")
+
 def demo_connect_four():
     """Demonstrate Connect Four implemented in pure Python"""
     print("=== Connect Four - Pure Python Implementation ===")
@@ -295,6 +413,13 @@ if __name__ == "__main__":
     # Run demo
     try:
         demo_connect_four()
+        
+        # Ask if user wants to play interactively
+        print("\n" + "=" * 60)
+        response = input("Would you like to play Connect Four against MCTS? (y/n): ").lower().strip()
+        if response == 'y':
+            interactive_connect_four()
+        
         print("\n🎉 Connect Four demo completed successfully!")
     except Exception as e:
         print(f"\n❌ Demo failed: {e}")
