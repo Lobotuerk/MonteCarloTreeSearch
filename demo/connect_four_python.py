@@ -5,7 +5,9 @@ Example: Connect Four game implemented entirely in Python using PyMCTS
 This demonstrates how to create new games without touching C++ code.
 """
 import sys
-sys.path.append('../build')
+import os
+# Add the project directory to path to find pymcts module
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pymcts
 import random
 from typing import List, Optional

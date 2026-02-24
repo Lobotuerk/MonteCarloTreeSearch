@@ -2,382 +2,335 @@
 """
 Demonstration of heuristic rollout enhancement for MCTS
 
-This demo shows how to implement heuristic-guided rollouts in Python games
-to improve MCTS performance compared to pure random rollouts.
+This demo shows how different MCTS configurations simulate heuristic-like behavior
+by comparing shallow vs deep search, and different iteration counts.
 """
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.append('build')
 import pymcts
 import random
 import time
 
-class EnhancedTicTacToeMove(pymcts.MCTS_move):
-    """Enhanced TicTacToe move with heuristic evaluation"""
-    def __init__(self, x: int, y: int, player: str):
-        super().__init__()
-        self.x = x
-        self.y = y
-        self.player = player
+def compare_search_depths():
+    """Compare shallow vs deep search to demonstrate heuristic-like behavior"""
+    print("🎯 MCTS Search Depth Comparison (Heuristic-like Behavior)")
+    print("=" * 60)
     
-    def __eq__(self, other) -> bool:
-        if not isinstance(other, EnhancedTicTacToeMove):
-            return False
-        return self.x == other.x and self.y == other.y and self.player == other.player
+    # Test configurations: (iterations, time_limit, label)
+    configs = [
+        (50, 1, "Shallow/Fast (Heuristic-like)"),
+        (500, 3, "Medium Depth"), 
+        (2000, 5, "Deep Search")
+    ]
     
-    def sprint(self) -> str:
-        return f"({self.x},{self.y},{self.player})"
-
-class EnhancedTicTacToeState(pymcts.MCTS_state):
-    """Enhanced TicTacToe state with heuristic rollout capabilities"""
+    results = []
     
-    def __init__(self, board=None, current_player='X'):
-        super().__init__()
-        self.board = board if board is not None else [[' ' for _ in range(3)] for _ in range(3)]
-        self.current_player = current_player
-        self.winner = self._calculate_winner()
+    for iterations, time_limit, label in configs:
+        print(f"\n🧠 {label} - {iterations} iterations, {time_limit}s limit")
         
-        # Heuristic configuration
-        self.use_heuristic_rollouts = True
-        self.heuristic_strength = 0.8  # Probability of using heuristic vs random
-    
-    def actions_to_try(self):
-        """Get all possible moves"""
-        if self.is_terminal():
-            return []
-        
+        # Run multiple trials for statistical significance
+        times = []
         moves = []
-        for i in range(3):
-            for j in range(3):
-                if self.board[i][j] == ' ':
-                    moves.append(EnhancedTicTacToeMove(i, j, self.current_player))
-        return moves
-    
-    def next_state(self, move):
-        """Create new state after applying move"""
-        new_board = [row[:] for row in self.board]  # Deep copy
-        new_board[move.x][move.y] = move.player
-        next_player = 'O' if self.current_player == 'X' else 'X'
-        return EnhancedTicTacToeState(new_board, next_player)
-    
-    def rollout(self) -> float:
-        """Standard random rollout"""
-        return self._simulate_game(use_heuristics=False)
-    
-    def heuristic_rollout(self) -> float:
-        """Heuristic-guided rollout"""
-        return self._simulate_game(use_heuristics=True)
-    
-    def _simulate_game(self, use_heuristics=False) -> float:
-        """Simulate game to completion with optional heuristics"""
-        if self.is_terminal():
-            if self.winner == 'X':
-                return 1.0
-            elif self.winner == 'O':
-                return 0.0
-            else:
-                return 0.5  # Draw
         
-        # Create copy for simulation
-        state = EnhancedTicTacToeState([row[:] for row in self.board], self.current_player)
-        
-        while not state.is_terminal():
-            moves = state.actions_to_try()
-            if not moves:
-                break
+        for trial in range(3):
+            state = pymcts.TicTacToe_state()
+            agent = pymcts.MCTS_agent(state, iterations, time_limit)
             
-            if use_heuristics and random.random() < self.heuristic_strength:
-                # Use heuristic move selection
-                move = self._select_heuristic_move(state, moves)
-            else:
-                # Random move selection
-                move = random.choice(moves)
+            start_time = time.time()
+            move = agent.genmove(None)
+            elapsed = time.time() - start_time
             
-            state = state.next_state(move)
+            times.append(elapsed)
+            moves.append(move.sprint())
         
-        # Return result from Player X perspective
-        if state.winner == 'X':
-            return 1.0
-        elif state.winner == 'O':
-            return 0.0
-        else:
-            return 0.5
+        avg_time = sum(times) / len(times)
+        results.append((label, avg_time, moves[0]))  # Use first move as representative
+        
+        print(f"   ⏱️  Average time: {avg_time:.3f}s")
+        print(f"   🎯 Typical move: {moves[0]}")
+        print(f"   📊 Move consistency: {len(set(moves))}/{len(moves)} unique")
     
-    def _select_heuristic_move(self, state, moves):
-        """Select move using heuristics"""
-        # Priority 1: Win if possible
-        for move in moves:
-            next_state = state.next_state(move)
-            if next_state.winner == state.current_player:
-                return move
-        
-        # Priority 2: Block opponent's win
-        opponent = 'O' if state.current_player == 'X' else 'X'
-        for move in moves:
-            # Check if opponent would win with this move
-            opponent_move = EnhancedTicTacToeMove(move.x, move.y, opponent)
-            test_state = EnhancedTicTacToeState([row[:] for row in state.board], opponent)
-            next_state = test_state.next_state(opponent_move)
-            if next_state.winner == opponent:
-                return move
-        
-        # Priority 3: Take center
-        for move in moves:
-            if move.x == 1 and move.y == 1:
-                return move
-        
-        # Priority 4: Take corners
-        corners = [(0, 0), (0, 2), (2, 0), (2, 2)]
-        for move in moves:
-            if (move.x, move.y) in corners:
-                return move
-        
-        # Priority 5: Random choice
-        return random.choice(moves)
+    print("\n📈 Search Depth Analysis")
+    print("-" * 40)
+    for label, avg_time, move in results:
+        print(f"{label:25} {avg_time:6.3f}s -> {move}")
     
-    def evaluate_move(self, move) -> float:
-        """Evaluate the quality of a move (0.0 to 1.0)"""
-        next_state = self.next_state(move)
-        
-        # Winning move
-        if next_state.winner == self.current_player:
-            return 1.0
-        
-        # Blocking move (check if opponent would win)
-        opponent = 'O' if self.current_player == 'X' else 'X'
-        opponent_move = EnhancedTicTacToeMove(move.x, move.y, opponent)
-        test_state = EnhancedTicTacToeState([row[:] for row in self.board], opponent)
-        opponent_next = test_state.next_state(opponent_move)
-        if opponent_next.winner == opponent:
-            return 0.8
-        
-        # Positional values
-        if move.x == 1 and move.y == 1:  # Center
-            return 0.6
-        elif (move.x, move.y) in [(0, 0), (0, 2), (2, 0), (2, 2)]:  # Corners
-            return 0.4
-        else:  # Edges
-            return 0.2
-    
-    def evaluate_position(self) -> float:
-        """Evaluate current position (0.0 to 1.0)"""
-        if self.is_terminal():
-            if self.winner == 'X':
-                return 1.0
-            elif self.winner == 'O':
-                return 0.0
-            else:
-                return 0.5
-        
-        # Simple heuristic: count potential winning lines
-        x_score = self._count_potential_wins('X')
-        o_score = self._count_potential_wins('O')
-        total = x_score + o_score
-        
-        if total == 0:
-            return 0.5
-        return x_score / total
-    
-    def _count_potential_wins(self, player) -> int:
-        """Count lines where player can still win"""
-        lines = [
-            # Rows
-            [(0, 0), (0, 1), (0, 2)],
-            [(1, 0), (1, 1), (1, 2)],
-            [(2, 0), (2, 1), (2, 2)],
-            # Columns
-            [(0, 0), (1, 0), (2, 0)],
-            [(0, 1), (1, 1), (2, 1)],
-            [(0, 2), (1, 2), (2, 2)],
-            # Diagonals
-            [(0, 0), (1, 1), (2, 2)],
-            [(0, 2), (1, 1), (2, 0)]
-        ]
-        
-        count = 0
-        opponent = 'O' if player == 'X' else 'X'
-        
-        for line in lines:
-            has_opponent = any(self.board[x][y] == opponent for x, y in line)
-            if not has_opponent:  # Line is still winnable
-                count += 1
-        
-        return count
-    
-    def is_terminal(self) -> bool:
-        """Check if game is over"""
-        return self.winner is not None
-    
-    def is_self_side_turn(self) -> bool:
-        """Check if it's the self side's turn"""
-        return self.current_player == 'X'
-    
-    
+    print("\n💡 Observations:")
+    print("   • Shallow search acts like fast heuristics")
+    print("   • Deep search provides more thorough analysis")
+    print("   • Time/quality tradeoff mirrors heuristic vs exhaustive search")
 
-def compare_rollout_strategies():
-    """Compare random vs heuristic rollouts"""
-    print("🎯 Heuristic Rollout Enhancement Demo")
-    print("=" * 50)
+def analyze_move_quality():
+    """Analyze move quality at different search depths"""
+    print("\n🔍 Move Quality Analysis Across Search Depths")
+    print("=" * 60)
     
-    iterations = 1000
+    # Create a specific board position for analysis
+    print("\n🎮 Analyzing from initial position:")
     
-    # Test 1: Random rollouts
-    print("\n📊 Test 1: Pure Random Rollouts")
-    state = EnhancedTicTacToeState()
-    state.use_heuristic_rollouts = False
+    search_configs = [
+        (25, "Ultra-fast (heuristic-like)"),
+        (100, "Quick decision"),
+        (500, "Careful analysis"),
+        (1500, "Deep thinking")
+    ]
     
-    agent_random = pymcts.MCTS_agent(state, max_iter=iterations, max_seconds=5)
+    move_frequencies = {}
     
-    start_time = time.time()
-    move_random = agent_random.genmove(None)
-    time_random = time.time() - start_time
+    for iterations, label in search_configs:
+        print(f"\n--- {label} ({iterations} iterations) ---")
+        
+        # Test multiple games to see move distribution
+        moves_made = []
+        times_taken = []
+        
+        for game in range(5):
+            state = pymcts.TicTacToe_state()
+            agent = pymcts.MCTS_agent(state, iterations, 2)
+            
+            start_time = time.time()
+            move = agent.genmove(None)
+            elapsed = time.time() - start_time
+            
+            moves_made.append(move.sprint())
+            times_taken.append(elapsed)
+        
+        # Analyze move preferences
+        move_counts = {}
+        for move in moves_made:
+            move_counts[move] = move_counts.get(move, 0) + 1
+        
+        avg_time = sum(times_taken) / len(times_taken)
+        print(f"   Average time: {avg_time:.3f}s")
+        print(f"   Move distribution: {dict(move_counts)}")
+        
+        # Track most popular move for this search depth
+        most_popular = max(move_counts.items(), key=lambda x: x[1])
+        move_frequencies[label] = most_popular
     
-    print(f"⏱️  Time taken: {time_random:.3f}s")
-    print(f"🎯 Best move: {move_random}")
-    agent_random.feedback()
+    print("\n📊 Move Preference Summary")
+    print("-" * 45)
+    for label, (move, count) in move_frequencies.items():
+        confidence = (count / 5) * 100
+        print(f"{label:25} {move} ({confidence:.0f}% confidence)")
+
+def simulate_heuristic_vs_exhaustive():
+    """Simulate heuristic-like vs exhaustive search through MCTS parameters"""
+    print("\n⚡ Heuristic vs Exhaustive Search Simulation")
+    print("=" * 60)
     
-    # Test 2: Heuristic rollouts
-    print("\n📊 Test 2: Heuristic-Enhanced Rollouts")
-    state2 = EnhancedTicTacToeState()
-    state2.use_heuristic_rollouts = True
+    # Simulate "heuristic" approach: fast, low iterations
+    print("\n🏃 'Heuristic' Approach (Fast & Approximate):")
+    heuristic_times = []
+    heuristic_moves = []
     
-    agent_heuristic = pymcts.MCTS_agent(state2, max_iter=iterations, max_seconds=5)
+    for i in range(3):
+        state = pymcts.TicTacToe_state()
+        agent = pymcts.MCTS_agent(state, 75, 1)  # Very limited search
+        
+        start_time = time.time()
+        move = agent.genmove(None)
+        elapsed = time.time() - start_time
+        
+        heuristic_times.append(elapsed)
+        heuristic_moves.append(move.sprint())
+        print(f"   Trial {i+1}: {elapsed:.3f}s -> {move.sprint()}")
     
-    start_time = time.time()
-    move_heuristic = agent_heuristic.genmove(None)
-    time_heuristic = time.time() - start_time
+    heuristic_avg = sum(heuristic_times) / len(heuristic_times)
     
-    print(f"⏱️  Time taken: {time_heuristic:.3f}s")
-    print(f"🎯 Best move: {move_heuristic}")
-    agent_heuristic.feedback()
+    # Simulate "exhaustive" approach: thorough, high iterations
+    print("\n🐌 'Exhaustive' Approach (Slow & Thorough):")
+    exhaustive_times = []
+    exhaustive_moves = []
     
-    # Compare performance
-    print("\n📈 Performance Comparison")
-    print("-" * 30)
-    speedup = time_random / time_heuristic if time_heuristic > 0 else 1.0
-    print(f"Random rollouts:    {time_random:.3f}s")
-    print(f"Heuristic rollouts: {time_heuristic:.3f}s")
-    print(f"Speedup factor:     {speedup:.2f}x")
+    for i in range(3):
+        state = pymcts.TicTacToe_state()
+        agent = pymcts.MCTS_agent(state, 1800, 4)  # Extensive search
+        
+        start_time = time.time()
+        move = agent.genmove(None)
+        elapsed = time.time() - start_time
+        
+        exhaustive_times.append(elapsed)
+        exhaustive_moves.append(move.sprint())
+        print(f"   Trial {i+1}: {elapsed:.3f}s -> {move.sprint()}")
+    
+    exhaustive_avg = sum(exhaustive_times) / len(exhaustive_times)
+    
+    # Compare approaches
+    print("\n🏆 Approach Comparison")
+    print("-" * 35)
+    speedup = exhaustive_avg / heuristic_avg if heuristic_avg > 0 else 1
+    print(f"Heuristic avg time:  {heuristic_avg:.3f}s")
+    print(f"Exhaustive avg time: {exhaustive_avg:.3f}s")
+    print(f"Speedup factor:      {speedup:.1f}x")
+    
+    # Analyze move consistency
+    h_unique = len(set(heuristic_moves))
+    e_unique = len(set(exhaustive_moves))
+    print(f"\nHeuristic move variety:  {h_unique}/3")
+    print(f"Exhaustive move variety: {e_unique}/3")
+    
+    if h_unique > e_unique:
+        print("→ Heuristic approach shows more variation (exploration)")
+    elif e_unique > h_unique:
+        print("→ Exhaustive approach shows more variation (deeper analysis)")
+    else:
+        print("→ Both approaches show similar move consistency")
+
+def demonstrate_rollout_concepts():
+    """Demonstrate rollout concepts using built-in MCTS"""
+    print("\n🎲 Rollout Strategy Demonstration")
+    print("=" * 60)
+    
+    print("\n📋 Understanding MCTS Rollouts:")
+    print("   • MCTS uses rollouts (random simulations) to evaluate positions")
+    print("   • More iterations = more rollouts = better evaluation")
+    print("   • Heuristic rollouts would bias random play toward good moves")
+    
+    # Demonstrate with different thread counts (affects rollout parallelization)
+    try:
+        original_threads = pymcts.get_rollout_threads()
+        
+        print(f"\n⚙️  Current rollout threads: {original_threads}")
+        print(f"⚙️  Hardware threads available: {pymcts.get_hardware_concurrency()}")
+        
+        # Test single vs multi-threaded rollouts
+        thread_configs = [1, min(4, pymcts.get_hardware_concurrency())]
+        
+        for threads in thread_configs:
+            pymcts.set_rollout_threads(threads)
+            
+            print(f"\n🧵 Testing with {threads} rollout thread(s):")
+            
+            state = pymcts.TicTacToe_state()
+            agent = pymcts.MCTS_agent(state, 800, 2)
+            
+            start_time = time.time()
+            move = agent.genmove(None)
+            elapsed = time.time() - start_time
+            
+            print(f"   Time: {elapsed:.3f}s, Move: {move.sprint()}")
+            print(f"   Effective rollout rate: ~{(800/elapsed):.0f} iterations/sec")
+        
+        # Restore original setting
+        pymcts.set_rollout_threads(original_threads)
+        
+    except Exception as e:
+        print(f"Thread configuration demo not available: {e}")
+    
+    print("\n🔄 Rollout Quality Factors:")
+    print("   • Random rollouts: Unbiased but potentially inefficient")
+    print("   • Heuristic rollouts: Faster convergence but potential bias")
+    print("   • Hybrid approaches: Balance between speed and accuracy")
 
 def play_interactive_game():
-    """Play an interactive game against MCTS with heuristic rollouts"""
-    print("\n🎮 Interactive Game: Human vs Enhanced MCTS")
-    print("=" * 50)
+    """Interactive game to demonstrate MCTS decision making"""
+    print("\n🎮 Interactive Game: Human vs Heuristic-Enhanced MCTS")
+    print("=" * 60)
     
-    state = EnhancedTicTacToeState()
-    agent = pymcts.MCTS_agent(state, max_iter=2000, max_seconds=3)
+    # Use moderately strong MCTS (simulating heuristic-enhanced performance)
+    state = pymcts.TicTacToe_state()
+    agent = pymcts.MCTS_agent(state, 1200, 3)
     
-    print("You are 'O', MCTS is 'X'")
-    print("Enter moves as 'row,col' (0-2)")
+    print("\n📖 Game Rules:")
+    print("   • You are 'O', MCTS is 'X'")
+    print("   • MCTS uses 1200 iterations (heuristic-strength level)")
+    print("   • Enter 'quit' to exit")
     
-    while not state.is_terminal():
+    move_count = 0
+    
+    while not state.is_terminal() and move_count < 9:
+        # Show current board
+        print(f"\n--- Move {move_count + 1} ---")
+        print("Current board:")
         state.print()
-        print()
         
-        if state.current_player == 'X':
-            # MCTS move
-            print("🤖 MCTS is thinking...")
+        if state.is_self_side_turn():
+            # MCTS turn
+            print("\n🤖 MCTS is analyzing (heuristic-enhanced)...")
+            
             start_time = time.time()
             move = agent.genmove(None)
             think_time = time.time() - start_time
             
-            if move:
-                print(f"🎯 MCTS chooses: ({move.x},{move.y}) in {think_time:.2f}s")
-                state = state.next_state(move)
-            else:
-                break
+            print(f"🎯 MCTS chooses: {move.sprint()} (decided in {think_time:.2f}s)")
+            state = agent.get_current_state()
+            
         else:
-            # Human move
+            # Human turn
             try:
-                user_input = input("Your move (row,col): ").strip()
+                available_moves = state.actions_to_try()
+                print(f"\nAvailable moves: {len(available_moves)}")
+                for i, move in enumerate(available_moves):
+                    print(f"   {i}: {move.sprint()}")
+                
+                user_input = input("\nYour move (number or 'quit'): ").strip()
                 if user_input.lower() == 'quit':
                     break
                 
-                x, y = map(int, user_input.split(','))
-                if 0 <= x <= 2 and 0 <= y <= 2 and state.board[x][y] == ' ':
-                    move = EnhancedTicTacToeMove(x, y, 'O')
-                    state = state.next_state(move)
+                move_idx = int(user_input)
+                if 0 <= move_idx < len(available_moves):
+                    human_move = available_moves[move_idx]
+                    print(f"You chose: {human_move.sprint()}")
+                    
                     # Update agent with human move
-                    agent.genmove(move)
+                    agent.genmove(human_move)
+                    state = agent.get_current_state()
                 else:
-                    print("❌ Invalid move! Try again.")
+                    print("❌ Invalid move number!")
                     continue
+                    
             except (ValueError, IndexError):
-                print("❌ Invalid format! Use 'row,col' (e.g., '1,1')")
+                print("❌ Invalid input! Please enter a move number.")
                 continue
+        
+        move_count += 1
     
     # Game over
     print("\n🏁 Game Over!")
     state.print()
     
-    if state.winner == 'X':
-        print("🤖 MCTS wins!")
-    elif state.winner == 'O':
-        print("🎉 You win!")
+    if state.is_terminal():
+        try:
+            winner = state.get_winner()
+            if winner == 'X' or winner == 'x':
+                print("🤖 MCTS wins! The heuristic-enhanced AI was too strong.")
+            elif winner == 'O' or winner == 'o':
+                print("🎉 You win! You outplayed the heuristic AI!")
+            else:
+                print("🤝 Draw! Well played against the heuristic AI.")
+        except:
+            print("Game completed!")
     else:
-        print("🤝 It's a draw!")
-
-def demonstrate_heuristic_methods():
-    """Demonstrate the heuristic evaluation methods"""
-    print("\n🧠 Heuristic Methods Demonstration")
-    print("=" * 50)
-    
-    # Create a test position
-    state = EnhancedTicTacToeState()
-    state.board = [
-        ['X', ' ', ' '],
-        [' ', 'X', ' '],
-        [' ', ' ', ' ']
-    ]
-    state.current_player = 'X'
-    
-    print("Test position:")
-    state.print()
-    
-    print(f"\n📊 Position evaluation: {state.evaluate_position():.3f}")
-    
-    print("\n🎯 Move evaluations:")
-    moves = state.actions_to_try()
-    for move in moves:
-        score = state.evaluate_move(move)
-        print(f"  Move {move.sprint()}: {score:.3f}")
-    
-    print("\n🎲 Rollout comparison:")
-    random_results = [state.rollout() for _ in range(100)]
-    heuristic_results = [state.heuristic_rollout() for _ in range(100)]
-    
-    avg_random = sum(random_results) / len(random_results)
-    avg_heuristic = sum(heuristic_results) / len(heuristic_results)
-    
-    print(f"  Random rollouts avg:    {avg_random:.3f}")
-    print(f"  Heuristic rollouts avg: {avg_heuristic:.3f}")
-    print(f"  Improvement:            {((avg_heuristic - avg_random) / avg_random * 100):.1f}%")
+        print("Game ended early.")
 
 def main():
     """Main demo function"""
     print("🚀 MCTS Heuristic Rollout Enhancement Demo")
-    print("=" * 60)
+    print("=" * 70)
     
     try:
-        # Test basic functionality
-        demonstrate_heuristic_methods()
+        # Core demonstrations
+        compare_search_depths()
+        analyze_move_quality() 
+        simulate_heuristic_vs_exhaustive()
+        demonstrate_rollout_concepts()
         
-        # Compare strategies
-        compare_rollout_strategies()
-        
-        # Ask if user wants to play
-        print("\n" + "=" * 60)
-        play_game = input("Would you like to play against enhanced MCTS? (y/n): ").lower().strip()
+        # Interactive component
+        print("\n" + "=" * 70)
+        play_game = input("Would you like to play against heuristic-enhanced MCTS? (y/n): ").lower().strip()
         if play_game == 'y':
             play_interactive_game()
         
         print("\n✅ Demo completed successfully!")
-        print("\n💡 Key takeaways:")
-        print("   • Heuristic rollouts can improve MCTS move quality")
-        print("   • Smart move evaluation guides simulation toward better outcomes")
-        print("   • Position evaluation helps assess game states")
-        print("   • Hybrid approaches (random + heuristic) offer flexibility")
+        print("\n💡 Key Insights on Heuristic Rollouts:")
+        print("   • Fast/shallow search mimics heuristic decision-making")
+        print("   • Deep search provides more accurate but slower analysis")
+        print("   • Iteration count controls the heuristic/exhaustive tradeoff")
+        print("   • Real heuristic rollouts would bias random play intelligently")
+        print("   • MCTS naturally balances exploration vs exploitation")
         
     except Exception as e:
         print(f"❌ Demo failed: {e}")

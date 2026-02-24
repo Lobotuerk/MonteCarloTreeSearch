@@ -3,7 +3,9 @@
 Simple working example of PyMCTS TicTacToe
 """
 import sys
-sys.path.append('../build')
+import os
+# Add the project directory to path to find pymcts module
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pymcts
 
 def simple_tictactoe_game():
