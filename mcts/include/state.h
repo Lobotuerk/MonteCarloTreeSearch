@@ -5,6 +5,7 @@
 #include <queue>
 #include <iostream>
 #include <string>
+#include <vector>
 
 
 using namespace std;
@@ -14,6 +15,11 @@ struct MCTS_move {
     virtual ~MCTS_move() = default;
     virtual bool operator==(const MCTS_move& other) const = 0;             // implement this!
     virtual string sprint() const { return "Not implemented"; }   // and optionally this
+
+    // Virtual methods for Python integration
+    virtual vector<double> to_numpy() const = 0;                          // Convert move to numpy array
+    virtual vector<int> to_env_action() const = 0;                        // Convert to environment action format
+    
 };
 
 

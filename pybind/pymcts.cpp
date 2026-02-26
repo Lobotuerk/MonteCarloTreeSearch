@@ -19,7 +19,9 @@ PYBIND11_MODULE(pymcts, m) {
         .def(py::init<>())
         .def("__eq__", &MCTS_move::operator==)
         .def("sprint", &MCTS_move::sprint, "Get string representation of the move")
-        .def("__str__", &MCTS_move::sprint);
+        .def("__str__", &MCTS_move::sprint)
+        .def("to_numpy", &MCTS_move::to_numpy, "Convert move to numpy array representation")
+        .def("to_env_action", &MCTS_move::to_env_action, "Convert move to environment action format");
 
     py::class_<MCTS_state, PyMCTS_state, py::smart_holder>(m, "MCTS_state")
         .def(py::init<>())

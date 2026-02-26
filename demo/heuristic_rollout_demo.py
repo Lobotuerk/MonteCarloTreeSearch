@@ -2,8 +2,7 @@
 """
 Demonstration of heuristic rollout enhancement for MCTS
 
-This demo shows how different MCTS configurations simulate heuristic-like behavior
-by comparing shallow vs deep search, and different iteration counts.
+DEMO IS WRONG, TODO TO SUPPORT HEURISTIC ROLLOUT ON PYTHON
 """
 import sys
 import os

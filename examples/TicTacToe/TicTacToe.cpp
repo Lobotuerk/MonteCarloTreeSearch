@@ -318,3 +318,15 @@ bool TicTacToe_move::operator==(const MCTS_move &other) const {
 std::string TicTacToe_move::sprint() const {
     return std::string("(") + std::to_string(x) + "," + std::to_string(y) + "," + player + ")";
 }
+
+std::vector<double> TicTacToe_move::to_numpy() const {
+    // Convert move to numpy-like representation: [x, y, player_as_double]
+    double player_val = (player == 'x') ? 1.0 : 0.0;
+    return {static_cast<double>(x), static_cast<double>(y), player_val};
+}
+
+std::vector<int> TicTacToe_move::to_env_action() const {
+    // Convert move to environment action format: [x, y, player_as_int]
+    int player_val = (player == 'x') ? 1 : 0;
+    return {x, y, player_val};
+}

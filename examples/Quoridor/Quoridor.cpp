@@ -509,6 +509,10 @@ MCTS_state *Quoridor_state::next_state(const MCTS_move *move) const {
     return new_state;
 }
 
+MCTS_state *Quoridor_state::clone() const {
+    return new Quoridor_state(*this);
+}
+
 /** It is very important to decide which actions we will be considering.
  *  We would like to mostly consider good moves by using appropriate heuristics.
  *  This minimizes the branching factor of the search tree while also not investing

@@ -81,6 +81,7 @@ public:
     /** Overrides: **/
     bool is_terminal() const override;
     MCTS_state *next_state(const MCTS_move *move) const override;
+    MCTS_state *clone() const override;
     queue<MCTS_move *> *actions_to_try() const override;
     double rollout() const override;                        // the rollout simulation in MCTS
     void print() const override;

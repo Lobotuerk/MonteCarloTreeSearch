@@ -56,6 +56,36 @@ public:
         return move_string;
     }
     
+    std::vector<double> to_numpy() const override {
+        try {
+            // Call Python move's to_numpy() method
+            py::list py_result = python_move.attr("to_numpy")();
+            std::vector<double> result;
+            for (auto item : py_result) {
+                result.push_back(item.cast<double>());
+            }
+            return result;
+        } catch (const std::exception& e) {
+            // Fallback to empty vector if method fails
+            return std::vector<double>();
+        }
+    }
+    
+    std::vector<int> to_env_action() const override {
+        try {
+            // Call Python move's to_env_action() method
+            py::list py_result = python_move.attr("to_env_action")();
+            std::vector<int> result;
+            for (auto item : py_result) {
+                result.push_back(item.cast<int>());
+            }
+            return result;
+        } catch (const std::exception& e) {
+            // Fallback to empty vector if method fails
+            return std::vector<int>();
+        }
+    }
+    
     py::object get_python_move() const {
         return python_move;
     }
@@ -112,6 +142,24 @@ public:
             MCTS_move,      /* Parent class */
             sprint,         /* Name of function in C++ (must match Python name) */
                             /* No arguments for this function */
+        );
+    }
+
+    std::vector<double> to_numpy() const override {
+        PYBIND11_OVERRIDE_PURE(
+            std::vector<double>, /* Return type */
+            MCTS_move,           /* Parent class */
+            to_numpy,            /* Name of function in C++ (must match Python name) */
+                                 /* No arguments for this function */
+        );
+    }
+
+    std::vector<int> to_env_action() const override {
+        PYBIND11_OVERRIDE_PURE(
+            std::vector<int>,    /* Return type */
+            MCTS_move,           /* Parent class */
+            to_env_action,       /* Name of function in C++ (must match Python name) */
+                                 /* No arguments for this function */
         );
     }
 };
