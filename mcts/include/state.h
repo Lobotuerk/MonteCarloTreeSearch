@@ -60,6 +60,11 @@ public:
     virtual double evaluate_position() const {
         return 0.5;  // Default: neutral position
     }
+
+    // Action probabilities for PUCT (optional override)
+    virtual vector<double> get_action_probabilities() const {
+        return vector<double>(); // Default empty
+    }
 };
 
 

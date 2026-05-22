@@ -37,11 +37,13 @@ class MCTS_node {
     unsigned int size;
     unsigned int number_of_simulations;
     double score;                       // e.g. number of wins (could be int but double is more general if we use evaluation functions)
+    double prior_probability;           // prior probability for PUCT
     MCTS_state *state;                  // current state
     const MCTS_move *move;              // move to get here from parent node's state
     mutable vector<MCTS_node *> children;
     MCTS_node *parent;
     queue<MCTS_move *> untried_actions;
+    vector<double> action_probabilities; // stored probabilities for untried actions
     void backpropagate(double w, int n);
     
     // Static rollout configuration
@@ -49,12 +51,13 @@ class MCTS_node {
     static double heuristic_ratio;      // For MIXED strategy: ratio of heuristic vs random rollouts
     
 public:
-    MCTS_node(MCTS_node *parent, MCTS_state *state, const MCTS_move *move);
+    MCTS_node(MCTS_node *parent, MCTS_state *state, const MCTS_move *move, double prior_probability = 1.0);
     ~MCTS_node();
     bool is_fully_expanded() const;
     bool is_terminal() const;
     const MCTS_move *get_move() const;
     unsigned int get_size() const;
+    double get_prior_probability() const { return prior_probability; }
     void expand();
     void rollout();
     void rollout_with_strategy(RolloutStrategy strategy);

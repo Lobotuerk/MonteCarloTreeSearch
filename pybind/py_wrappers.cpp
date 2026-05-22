@@ -103,6 +103,22 @@ MCTS_state* SerializedPythonState::clone() const {
     }
 }
 
+std::vector<double> SerializedPythonState::get_action_probabilities() const {
+    try {
+        if (py::hasattr(python_state, "get_action_probabilities")) {
+            py::list py_probs = python_state.attr("get_action_probabilities")();
+            std::vector<double> result;
+            for (auto item : py_probs) {
+                result.push_back(item.cast<double>());
+            }
+            return result;
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Error in SerializedPythonState::get_action_probabilities: " << e.what() << std::endl;
+    }
+    return std::vector<double>();
+}
+
 py::object SerializedPythonState::find_python_move(const MCTS_move* cpp_move) const {
     // Search through cached Python moves to find the one that matches using value comparison
     for (const auto& py_move : cached_python_moves) {

@@ -16,13 +16,47 @@ RolloutStrategy MCTS_node::rollout_strategy = RolloutStrategy::RANDOM;
 double MCTS_node::heuristic_ratio = 0.5;
 
 /*** MCTS NODE ***/
-MCTS_node::MCTS_node(MCTS_node *parent, MCTS_state *state, const MCTS_move *move)
-        : parent(parent), state(state), move(move), score(0.0), number_of_simulations(0), size(0) {
+MCTS_node::MCTS_node(MCTS_node *parent, MCTS_state *state, const MCTS_move *move, double prior_probability)
+        : terminal(false), size(0), number_of_simulations(0), score(0.0), 
+          prior_probability(prior_probability), state(state), move(move), 
+          parent(parent) {
+    terminal = this->state->is_terminal();
     children.reserve(STARTING_NUMBER_OF_CHILDREN);
     auto* tmp = state->actions_to_try();
     untried_actions.swap(*tmp);
     delete tmp;
-    terminal = state->is_terminal();
+    
+    if (!untried_actions.empty()) {
+        vector<double> probs = this->state->get_action_probabilities();
+        if (!probs.empty()) {
+            // Sort untried actions by probability
+            vector<pair<double, MCTS_move*>> paired;
+            size_t i = 0;
+            while (!untried_actions.empty()) {
+                double p = (i < probs.size()) ? probs[i] : 1.0;
+                paired.push_back({p, untried_actions.front()});
+                untried_actions.pop();
+                i++;
+            }
+            
+            sort(paired.begin(), paired.end(), [](const pair<double, MCTS_move*>& a, const pair<double, MCTS_move*>& b) {
+                return a.first > b.first;
+            });
+            
+            for (auto& item : paired) {
+                untried_actions.push(item.second);
+                action_probabilities.push_back(item.first);
+            }
+        } else {
+            // Fill probabilities with 1.0 for each action
+            while (!untried_actions.empty()) {
+                MCTS_move *m = untried_actions.front();
+                untried_actions.pop();
+                action_probabilities.push_back(1.0);
+            }
+        }
+    }
+}
 }
 
 MCTS_node::~MCTS_node() {
@@ -32,11 +66,10 @@ MCTS_node::~MCTS_node() {
         delete child;
     }
     while (!untried_actions.empty()) {
-        delete untried_actions.front();    // if a move is here then it is not a part of a child node and needs to be deleted here
+        delete untried_actions.front();
         untried_actions.pop();
     }
 }
-
 void MCTS_node::expand() {
     if (is_terminal()) {              // can legitimately happen in end-game situations
         rollout();                    // keep rolling out, eventually causing UCT to pick another node to expand due to exploration
@@ -46,11 +79,19 @@ void MCTS_node::expand() {
         return;
     }
     // get next untried action
-    MCTS_move *next_move = untried_actions.front();     // get value
-    untried_actions.pop();                              // remove it
+    MCTS_move *next_move = untried_actions.front();
+    untried_actions.pop();
+    
+    // get corresponding probability
+    double prob = 1.0;
+    if (!action_probabilities.empty()) {
+        prob = action_probabilities[0];
+        action_probabilities.erase(action_probabilities.begin());
+    }
+    
     MCTS_state *next_state = state->next_state(next_move);
     // build a new MCTS node from it
-    MCTS_node *new_node = new MCTS_node(this, next_state, next_move);
+    MCTS_node *new_node = new MCTS_node(this, next_state, next_move, prob);
     // rollout, updating its stats
     new_node->rollout();
     // add new node to tree
@@ -133,7 +174,7 @@ MCTS_node *MCTS_node::select_best_child(double c) const {
     if (children.empty()) return NULL;
     else if (children.size() == 1) return children[0];
     else {
-        double uct, max = -1;
+        double score, max = -1e20;
         MCTS_node *argmax = NULL;
         for (auto *child : children) {
             double winrate = child->score / ((double) child->number_of_simulations);
@@ -142,13 +183,14 @@ MCTS_node *MCTS_node::select_best_child(double c) const {
                 winrate = 1.0 - winrate;
             }
             if (c > 0) {
-                uct = winrate +
-                      c * sqrt(log((double) this->number_of_simulations) / ((double) child->number_of_simulations));
+                // PUCT formula: Q + C * P * sqrt(ParentN) / (1 + ChildN)
+                double exploration = c * child->prior_probability * sqrt((double)this->number_of_simulations) / (1.0 + (double)child->number_of_simulations);
+                score = winrate + exploration;
             } else {
-                uct = winrate;
+                score = winrate;
             }
-            if (uct > max) {
-                max = uct;
+            if (score > max) {
+                max = score;
                 argmax = child;
             }
         }
@@ -173,7 +215,7 @@ MCTS_node *MCTS_node::advance_tree(const MCTS_move *m) {
         // Note: UCT may lead to not fully explored tree even for short-term children due to terminal nodes being chosen
         cout << "INFO: Didn't find child node. Had to start over." << endl;
         MCTS_state *next_state = state->next_state(m);
-        next = new MCTS_node(NULL, next_state, NULL);
+        next = new MCTS_node(NULL, next_state, NULL, 1.0);
     } else {
         next->parent = NULL;     // make parent NULL
         // IMPORTANT: m and next->move can be the same here if we pass the move from select_best_child()
