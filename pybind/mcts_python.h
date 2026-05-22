@@ -28,11 +28,13 @@ class MCTS_node {
     unsigned int size;
     unsigned int number_of_simulations;
     double score;                       // e.g. number of wins (could be int but double is more general if we use evaluation functions)
+    double prior_probability;           // prior probability for PUCT
     MCTS_state *state;                  // current state
     const MCTS_move *move;              // move to get here from parent node's state
     vector<MCTS_node *> *children;
     MCTS_node *parent;
     queue<MCTS_move *> *untried_actions;
+    vector<double> action_probabilities; // stored probabilities for untried actions
     bool owns_state;                    // true if this node should delete the state in destructor
     void backpropagate(double w, int n);
     
@@ -40,12 +42,13 @@ class MCTS_node {
     static unsigned int num_rollout_threads;
     
 public:
-    MCTS_node(MCTS_node *parent, MCTS_state *state, const MCTS_move *move, bool owns_state = true);
+    MCTS_node(MCTS_node *parent, MCTS_state *state, const MCTS_move *move, bool owns_state = true, double prior_probability = 1.0);
     ~MCTS_node();
     bool is_fully_expanded() const;
     bool is_terminal() const;
     const MCTS_move *get_move() const;
     unsigned int get_size() const;
+    double get_prior_probability() const { return prior_probability; }
     void expand();
     void rollout();
     MCTS_node *select_best_child(double c) const;

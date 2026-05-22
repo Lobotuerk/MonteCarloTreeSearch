@@ -38,7 +38,8 @@ PYBIND11_MODULE(pymcts, m) {
         .def("is_terminal", &MCTS_state::is_terminal, "Check if this is a terminal state")
         .def("print", &MCTS_state::print, "Print the current state")
         .def("is_self_side_turn", &MCTS_state::is_self_side_turn, "Check if it's the self side's turn")
-        .def("clone", &MCTS_state::clone, "Create a deep copy of this state", py::return_value_policy::take_ownership);
+        .def("clone", &MCTS_state::clone, "Create a deep copy of this state", py::return_value_policy::take_ownership)
+        .def("get_action_probabilities", &MCTS_state::get_action_probabilities, "Get prior probabilities for possible moves");
 
     // Core MCTS classes
     py::class_<MCTS_node>(m, "MCTS_node")
@@ -48,6 +49,7 @@ PYBIND11_MODULE(pymcts, m) {
         .def("get_move", &MCTS_node::get_move, 
              "Get the move that led to this node", py::return_value_policy::reference)
         .def("get_size", &MCTS_node::get_size, "Get the number of nodes in the subtree")
+        .def_property_readonly("prior_probability", &MCTS_node::get_prior_probability, "Get the prior probability for PUCT")
         .def("expand", &MCTS_node::expand, "Expand this node by adding a new child")
         .def("rollout", &MCTS_node::rollout, "Perform a rollout simulation from this node")
         .def("select_best_child", &MCTS_node::select_best_child, 

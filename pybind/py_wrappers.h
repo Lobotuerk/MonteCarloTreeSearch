@@ -112,6 +112,7 @@ public:
     void print() const override;
     bool is_self_side_turn() const override;
     MCTS_state* clone() const override;
+    std::vector<double> get_action_probabilities() const override;
     
     // Helper to find original Python move from C++ pointer
     py::object find_python_move(const MCTS_move* cpp_move) const;
@@ -233,6 +234,15 @@ public:
             MCTS_state*,              /* Return type */
             MCTS_state,               /* Parent class */
             clone,                    /* Name of function in C++ (must match Python name) */
+                                      /* No arguments */
+        );
+    }
+
+    std::vector<double> get_action_probabilities() const override {
+        PYBIND11_OVERRIDE(
+            std::vector<double>,      /* Return type */
+            MCTS_state,               /* Parent class */
+            get_action_probabilities, /* Name of function in C++ */
                                       /* No arguments */
         );
     }
