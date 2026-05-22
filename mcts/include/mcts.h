@@ -39,9 +39,9 @@ class MCTS_node {
     double score;                       // e.g. number of wins (could be int but double is more general if we use evaluation functions)
     MCTS_state *state;                  // current state
     const MCTS_move *move;              // move to get here from parent node's state
-    vector<MCTS_node *> *children;
+    mutable vector<MCTS_node *> children;
     MCTS_node *parent;
-    queue<MCTS_move *> *untried_actions;
+    queue<MCTS_move *> untried_actions;
     void backpropagate(double w, int n);
     
     // Static rollout configuration

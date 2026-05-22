@@ -18,24 +18,23 @@ double MCTS_node::heuristic_ratio = 0.5;
 /*** MCTS NODE ***/
 MCTS_node::MCTS_node(MCTS_node *parent, MCTS_state *state, const MCTS_move *move)
         : parent(parent), state(state), move(move), score(0.0), number_of_simulations(0), size(0) {
-    children = new vector<MCTS_node *>();
-    children->reserve(STARTING_NUMBER_OF_CHILDREN);
-    untried_actions = state->actions_to_try();
+    children.reserve(STARTING_NUMBER_OF_CHILDREN);
+    auto* tmp = state->actions_to_try();
+    untried_actions.swap(*tmp);
+    delete tmp;
     terminal = state->is_terminal();
 }
 
 MCTS_node::~MCTS_node() {
     delete state;
     delete move;
-    for (auto *child : *children) {
+    for (auto *child : children) {
         delete child;
     }
-    delete children;
-    while (!untried_actions->empty()) {
-        delete untried_actions->front();    // if a move is here then it is not a part of a child node and needs to be deleted here
-        untried_actions->pop();
+    while (!untried_actions.empty()) {
+        delete untried_actions.front();    // if a move is here then it is not a part of a child node and needs to be deleted here
+        untried_actions.pop();
     }
-    delete untried_actions;
 }
 
 void MCTS_node::expand() {
@@ -47,15 +46,15 @@ void MCTS_node::expand() {
         return;
     }
     // get next untried action
-    MCTS_move *next_move = untried_actions->front();     // get value
-    untried_actions->pop();                              // remove it
+    MCTS_move *next_move = untried_actions.front();     // get value
+    untried_actions.pop();                              // remove it
     MCTS_state *next_state = state->next_state(next_move);
     // build a new MCTS node from it
     MCTS_node *new_node = new MCTS_node(this, next_state, next_move);
     // rollout, updating its stats
     new_node->rollout();
     // add new node to tree
-    children->push_back(new_node);
+    children.push_back(new_node);
 }
 
 void MCTS_node::rollout() {
@@ -118,7 +117,7 @@ void MCTS_node::backpropagate(double w, int n) {
 }
 
 bool MCTS_node::is_fully_expanded() const {
-    return is_terminal() || untried_actions->empty();
+    return is_terminal() || untried_actions.empty();
 }
 
 bool MCTS_node::is_terminal() const {
@@ -131,12 +130,12 @@ unsigned int MCTS_node::get_size() const {
 
 MCTS_node *MCTS_node::select_best_child(double c) const {
     /** selects best child based on the winrate of whose turn it is to play */
-    if (children->empty()) return NULL;
-    else if (children->size() == 1) return children->at(0);
+    if (children.empty()) return NULL;
+    else if (children.size() == 1) return children[0];
     else {
         double uct, max = -1;
         MCTS_node *argmax = NULL;
-        for (auto *child : *children) {
+        for (auto *child : children) {
             double winrate = child->score / ((double) child->number_of_simulations);
             // If it's not the self side's turn, apply UCT based on opponent winrate (our loss rate)
             if (!state->is_self_side_turn()){
@@ -160,7 +159,7 @@ MCTS_node *MCTS_node::select_best_child(double c) const {
 MCTS_node *MCTS_node::advance_tree(const MCTS_move *m) {
     // Find child with this m and delete all others
     MCTS_node *next = NULL;
-    for (auto *child: *children) {
+    for (auto *child: children) {
         if (*(child->move) == *(m)) {
             next = child;
         } else {
@@ -168,7 +167,7 @@ MCTS_node *MCTS_node::advance_tree(const MCTS_move *m) {
         }
     }
     // remove children from queue so that they won't be re-deleted by the destructor when this node dies (!)
-    this->children->clear();
+    children.clear();
     // if not found then we have to create a new node
     if (next == NULL) {
         // Note: UCT may lead to not fully explored tree even for short-term children due to terminal nodes being chosen
@@ -256,23 +255,23 @@ void MCTS_node::print_stats() const {
     cout << "___ INFO _______________________" << endl
          << "Tree size: " << size << endl
          << "Number of simulations: " << number_of_simulations << endl
-         << "Branching factor at root: " << children->size() << endl
+         << "Branching factor at root: " << children.size() << endl
          << "Chances of self side winning: " << setprecision(4) << 100.0 * (score / number_of_simulations) << "%" << endl;
     // sort children based on winrate of current player's turn for this node
     if (state->is_self_side_turn()) {
-        std::sort(children->begin(), children->end(), [](const MCTS_node *n1, const MCTS_node *n2){
+        std::sort(children.begin(), children.end(), [](const MCTS_node *n1, const MCTS_node *n2){
             return n1->calculate_winrate(true) > n2->calculate_winrate(true);
         });
     } else {
-        std::sort(children->begin(), children->end(), [](const MCTS_node *n1, const MCTS_node *n2){
+        std::sort(children.begin(), children.end(), [](const MCTS_node *n1, const MCTS_node *n2){
             return n1->calculate_winrate(false) > n2->calculate_winrate(false);
         });
     }
     // print TOPK of them along with their winrates
     cout << "Best moves:" << endl;
-    for (int i = 0 ; i < children->size() && i < TOPK ; i++) {
-        cout << "  " << i + 1 << ". " << children->at(i)->move->sprint() << "  -->  "
-             << setprecision(4) << 100.0 * children->at(i)->calculate_winrate(state->is_self_side_turn()) << "%" << endl;
+    for (int i = 0 ; i < children.size() && i < TOPK ; i++) {
+        cout << "  " << i + 1 << ". " << children[i]->move->sprint() << "  -->  "
+             << setprecision(4) << 100.0 * children[i]->calculate_winrate(state->is_self_side_turn()) << "%" << endl;
     }
     cout << "________________________________" << endl;
 }
