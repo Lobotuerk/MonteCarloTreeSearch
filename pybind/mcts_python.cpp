@@ -48,11 +48,7 @@ MCTS_node::MCTS_node(MCTS_node *parent, MCTS_state *state, const MCTS_move *move
             }
         } else {
             // Fill probabilities with 1.0 for each action
-            while (!untried_actions.empty()) {
-                MCTS_move *m = untried_actions.front();
-                untried_actions.pop();
-                action_probabilities.push_back(1.0);
-            }
+            action_probabilities.assign(untried_actions.size(), 1.0);
         }
     }
 }
@@ -93,6 +89,7 @@ void MCTS_node::expand() {
     MCTS_state *next_state = state->next_state(next_move);
     // build a new MCTS node from it
     MCTS_node *new_node = new MCTS_node(this, next_state, next_move, true, prob);  // Try to own, constructor will decide
+    delete next_state; // Prevent memory leak since MCTS_node constructor clones it
     // rollout, updating its stats
     new_node->rollout();
     // add new node to tree
