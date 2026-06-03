@@ -11,7 +11,7 @@
 
 namespace py = pybind11;
 
-PYBIND11_MODULE(pymcts, m) {
+PYBIND11_MODULE(pymcts, m, py::mod_gil_not_used()) {
     m.doc() = "Python bindings for Monte Carlo Tree Search C++ library with smart_holder support";
 
     // Abstract base classes with trampolines using py::smart_holder
