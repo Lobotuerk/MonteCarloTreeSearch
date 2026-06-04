@@ -6,7 +6,7 @@
 #include <random>
 #include "../include/mcts.h"
 
-#define DEBUG
+// #define DEBUG
 
 
 using namespace std;

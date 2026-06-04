@@ -8,7 +8,7 @@
 #include <vector>
 #include "mcts_python.h"
 
-#define DEBUG
+// #define DEBUG
 
 using namespace std;
 
