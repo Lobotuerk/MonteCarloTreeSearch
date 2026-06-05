@@ -89,16 +89,10 @@ bool SerializedPythonState::is_self_side_turn() const {
 
 MCTS_state* SerializedPythonState::clone() const {
     try {
-        // Try to create a proper copy using the Python object's own state
-        // We'll use the object's current state to recreate it
-        
-        // For now, return a simple shallow copy since the Python objects
-        // in our demos don't modify their state in place during MCTS rollouts
-        // (they create new objects via next_state)
-        return new SerializedPythonState(python_state);
+        py::object cloned = python_state.attr("clone")();
+        return new SerializedPythonState(cloned);
     } catch (const std::exception& e) {
         std::cerr << "Error in SerializedPythonState::clone: " << e.what() << std::endl;
-        // Fallback: return a copy with the same object
         return new SerializedPythonState(python_state);
     }
 }
