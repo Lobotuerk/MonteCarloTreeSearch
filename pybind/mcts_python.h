@@ -49,6 +49,10 @@ public:
     const MCTS_move *get_move() const;
     unsigned int get_size() const;
     double get_prior_probability() const { return prior_probability; }
+    unsigned int get_number_of_simulations() const { return number_of_simulations; }
+    double get_score() const { return score; }
+    MCTS_node *get_parent() const { return parent; }
+    const vector<MCTS_node *> &get_children() const { return children; }
     void expand();
     void rollout();
     MCTS_node *select_best_child(double c) const;
@@ -74,6 +78,7 @@ public:
     unsigned int get_size() const;
     const MCTS_state *get_current_state() const;
     void print_stats() const;
+    MCTS_node *get_root() const { return root; }
 };
 
 class MCTS_agent {                           // example of an agent based on the MCTS_tree. One can also use the tree directly.
@@ -84,6 +89,7 @@ public:
     ~MCTS_agent();
     const MCTS_move *genmove(const MCTS_move *enemy_move);
     const MCTS_state *get_current_state() const;
+    MCTS_tree *get_tree() const { return tree; }
     void feedback() const { tree->print_stats(); }
     
     // Configure parallel rollouts for this agent's tree
