@@ -50,6 +50,18 @@ PYBIND11_MODULE(pymcts, m, py::mod_gil_not_used()) {
              "Get the move that led to this node", py::return_value_policy::reference)
         .def("get_size", &MCTS_node::get_size, "Get the number of nodes in the subtree")
         .def_property_readonly("prior_probability", &MCTS_node::get_prior_probability, "Get the prior probability for PUCT")
+        .def_property_readonly("visit_count", &MCTS_node::get_number_of_simulations, "Get the number of simulations for this node")
+        .def_property_readonly("score", &MCTS_node::get_score, "Get the total score (wins) for this node")
+        .def("get_children", [](const MCTS_node& self) {
+            const auto& children = self.get_children();
+            py::list result;
+            for (auto* child : children) {
+                result.append(py::cast(child, py::return_value_policy::reference));
+            }
+            return result;
+        }, "Get list of child nodes")
+        .def("get_parent", &MCTS_node::get_parent, 
+             "Get the parent node", py::return_value_policy::reference)
         .def("expand", &MCTS_node::expand, "Expand this node by adding a new child")
         .def("rollout", &MCTS_node::rollout, "Perform a rollout simulation from this node")
         .def("select_best_child", &MCTS_node::select_best_child, 
@@ -75,7 +87,9 @@ PYBIND11_MODULE(pymcts, m, py::mod_gil_not_used()) {
         .def("get_size", &MCTS_tree::get_size, "Get the total number of nodes in the tree")
         .def("get_current_state", &MCTS_tree::get_current_state, 
              "Get the current root state", py::return_value_policy::reference)
-        .def("print_stats", &MCTS_tree::print_stats, "Print tree statistics");
+        .def("print_stats", &MCTS_tree::print_stats, "Print tree statistics")
+        .def_property_readonly("root", &MCTS_tree::get_root, 
+             "Get the root node of the tree", py::return_value_policy::reference);
 
     // High-level agent interface (recommended for most users)
     py::class_<SafeMCTS_agent>(m, "MCTS_agent")
@@ -87,7 +101,11 @@ PYBIND11_MODULE(pymcts, m, py::mod_gil_not_used()) {
              py::arg("enemy_move") = nullptr, py::return_value_policy::reference)
         .def("get_current_state", &SafeMCTS_agent::get_current_state, 
              "Get the current game state", py::return_value_policy::reference)
-        .def("feedback", &SafeMCTS_agent::feedback, "Print feedback about the agent's thinking");
+        .def("feedback", &SafeMCTS_agent::feedback, "Print feedback about the agent's thinking")
+        .def_property_readonly("tree", &SafeMCTS_agent::get_tree, 
+             "Get the MCTS_tree used by this agent", py::return_value_policy::reference)
+        .def_readwrite("max_iter", &SafeMCTS_agent::max_iter, "Maximum number of iterations")
+        .def_readwrite("max_seconds", &SafeMCTS_agent::max_seconds, "Maximum time in seconds");
 
     // TicTacToe example implementation with py::smart_holder
     py::class_<TicTacToe_move, MCTS_move, py::smart_holder>(m, "TicTacToe_move")
