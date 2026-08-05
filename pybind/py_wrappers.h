@@ -271,13 +271,15 @@ public:
     int max_iter;
     int max_seconds;
     
-    SafeMCTS_agent(MCTS_state* starting_state, int max_iter = 100000, int max_seconds = 30);
+    SafeMCTS_agent(MCTS_state* starting_state, int max_iter = 100000, int max_seconds = 30, double exploration_constant = 1.41);
     ~SafeMCTS_agent();
     
     // Returns nullptr if no move available (game ended)
     const MCTS_move* genmove(const MCTS_move* enemy_move = nullptr);
     const MCTS_state* get_current_state() const;
     void feedback() const;
+    void set_exploration_constant(double c) { agent->set_exploration_constant(c); }
+    double get_exploration_constant() const { return agent->get_exploration_constant(); }
     MCTS_agent* get_agent() const { return agent; }
     MCTS_tree* get_tree() const { return agent->get_tree(); }
 };

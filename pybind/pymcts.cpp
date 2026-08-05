@@ -79,9 +79,9 @@ PYBIND11_MODULE(pymcts, m, py::mod_gil_not_used()) {
              "Select a node to expand using UCT", py::arg("c") = 1.41)
         .def("select_best_child", &MCTS_tree::select_best_child, 
              "Select the best child of the root node")
-        .def("grow_tree", &MCTS_tree::grow_tree, 
-             "Grow the tree for the specified iterations or time",
-             py::arg("max_iter"), py::arg("max_time_in_seconds"))
+      .def("grow_tree", &MCTS_tree::grow_tree, 
+              "Grow the tree for the specified iterations or time",
+              py::arg("max_iter"), py::arg("max_time_in_seconds"), py::arg("c") = 1.41)
         .def("advance_tree", &MCTS_tree::advance_tree, 
              "Advance the tree by applying the given move", py::arg("move"))
         .def("get_size", &MCTS_tree::get_size, "Get the total number of nodes in the tree")
@@ -93,15 +93,19 @@ PYBIND11_MODULE(pymcts, m, py::mod_gil_not_used()) {
 
     // High-level agent interface (recommended for most users)
     py::class_<SafeMCTS_agent>(m, "MCTS_agent")
-        .def(py::init<MCTS_state*, int, int>(), 
+        .def(py::init<MCTS_state*, int, int, double>(), 
              "Create an MCTS agent with the given starting state and parameters",
-             py::arg("starting_state"), py::arg("max_iter") = 100000, py::arg("max_seconds") = 30)
+             py::arg("starting_state"), py::arg("max_iter") = 100000, py::arg("max_seconds") = 30, py::arg("exploration_constant") = 1.41)
         .def("genmove", &SafeMCTS_agent::genmove, 
              "Generate the next move, optionally considering an enemy move first",
              py::arg("enemy_move") = nullptr, py::return_value_policy::reference)
         .def("get_current_state", &SafeMCTS_agent::get_current_state, 
              "Get the current game state", py::return_value_policy::reference)
         .def("feedback", &SafeMCTS_agent::feedback, "Print feedback about the agent's thinking")
+        .def_property("exploration_constant", 
+                     &SafeMCTS_agent::get_exploration_constant,
+                     &SafeMCTS_agent::set_exploration_constant,
+                     "PUCT exploration constant (c)")
         .def_property_readonly("tree", &SafeMCTS_agent::get_tree, 
              "Get the MCTS_tree used by this agent", py::return_value_policy::reference)
         .def_readwrite("max_iter", &SafeMCTS_agent::max_iter, "Maximum number of iterations")

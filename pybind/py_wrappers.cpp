@@ -155,9 +155,9 @@ std::queue<MCTS_move*>* vector_to_queue(const std::vector<MCTS_move*>& vec) {
     return q;
 }
 
-SafeMCTS_agent::SafeMCTS_agent(MCTS_state* starting_state, int max_iter, int max_seconds) 
+SafeMCTS_agent::SafeMCTS_agent(MCTS_state* starting_state, int max_iter, int max_seconds, double exploration_constant)
     : max_iter(max_iter), max_seconds(max_seconds) {
-    agent = new MCTS_agent(starting_state, max_iter, max_seconds);
+    agent = new MCTS_agent(starting_state, max_iter, max_seconds, exploration_constant);
 }
 
 SafeMCTS_agent::~SafeMCTS_agent() {
