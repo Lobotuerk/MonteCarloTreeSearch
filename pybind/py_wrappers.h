@@ -114,6 +114,12 @@ public:
     MCTS_state* clone() const override;
     std::vector<double> get_action_probabilities() const override;
     
+    // Batch evaluation: crosses Python boundary once for a batch of states
+    std::vector<std::pair<double, std::vector<double>>> evaluate_batch(const std::vector<MCTS_state*>& states) const;
+    
+    // Accessor for python_state (needed by batched MCTS)
+    py::object get_python_state() const { return python_state; }
+    
     // Helper to find original Python move from C++ pointer
     py::object find_python_move(const MCTS_move* cpp_move) const;
 };
@@ -282,6 +288,12 @@ public:
     double get_exploration_constant() const { return agent->get_exploration_constant(); }
     MCTS_agent* get_agent() const { return agent; }
     MCTS_tree* get_tree() const { return agent->get_tree(); }
+    
+    // Batched search configuration (delegated to underlying agent)
+    void set_batch_size(int size) { agent->set_batch_size(size); }
+    int get_batch_size() const { return agent->get_batch_size(); }
+    void set_num_search_threads(int n) { agent->set_num_search_threads(n); }
+    int get_num_search_threads() const { return agent->get_num_search_threads(); }
 };
 
 #endif // PY_WRAPPERS_H

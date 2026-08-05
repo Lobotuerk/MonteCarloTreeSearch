@@ -106,10 +106,14 @@ PYBIND11_MODULE(pymcts, m, py::mod_gil_not_used()) {
                      &SafeMCTS_agent::get_exploration_constant,
                      &SafeMCTS_agent::set_exploration_constant,
                      "PUCT exploration constant (c)")
-        .def_property_readonly("tree", &SafeMCTS_agent::get_tree, 
-             "Get the MCTS_tree used by this agent", py::return_value_policy::reference)
+       .def_property_readonly("tree", &SafeMCTS_agent::get_tree, 
+              "Get the MCTS_tree used by this agent", py::return_value_policy::reference)
         .def_readwrite("max_iter", &SafeMCTS_agent::max_iter, "Maximum number of iterations")
-        .def_readwrite("max_seconds", &SafeMCTS_agent::max_seconds, "Maximum time in seconds");
+        .def_readwrite("max_seconds", &SafeMCTS_agent::max_seconds, "Maximum time in seconds")
+        .def_property("batch_size", &SafeMCTS_agent::get_batch_size, &SafeMCTS_agent::set_batch_size, 
+                      "Batch size for parallel leaf evaluations (default: 64)")
+        .def_property("num_search_threads", &SafeMCTS_agent::get_num_search_threads, &SafeMCTS_agent::set_num_search_threads,
+                      "Number of search threads for batched MCTS (default: 4)");
 
     // TicTacToe example implementation with py::smart_holder
     py::class_<TicTacToe_move, MCTS_move, py::smart_holder>(m, "TicTacToe_move")

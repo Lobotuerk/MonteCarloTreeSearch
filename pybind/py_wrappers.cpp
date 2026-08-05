@@ -113,6 +113,51 @@ std::vector<double> SerializedPythonState::get_action_probabilities() const {
     return std::vector<double>();
 }
 
+std::vector<std::pair<double, std::vector<double>>> SerializedPythonState::evaluate_batch(const std::vector<MCTS_state*>& states) const {
+    std::vector<std::pair<double, std::vector<double>>> results;
+    if (states.empty()) {
+        return results;
+    }
+    
+    // Check if the Python state object has evaluate_batch method
+    if (!py::hasattr(python_state, "evaluate_batch")) {
+        return results;
+    }
+    
+    try {
+        // Build a py::list of Python state objects
+        py::list py_states;
+        for (auto* s : states) {
+            if (auto* sps = dynamic_cast<SerializedPythonState*>(s)) {
+                py_states.append(sps->python_state);
+            } else {
+                // Fallback: return empty to signal no batch support
+                return std::vector<std::pair<double, std::vector<double>>>();
+            }
+        }
+        
+        // Call the Python batch method
+        py::list py_results = python_state.attr("evaluate_batch")(py_states);
+        
+        // Parse results: each element is a tuple (value, [priors])
+        for (auto item : py_results) {
+            py::tuple entry = item.cast<py::tuple>();
+            double value = entry[0].cast<double>();
+            std::vector<double> priors;
+            py::list py_priors = entry[1].cast<py::list>();
+            for (auto p : py_priors) {
+                priors.push_back(p.cast<double>());
+            }
+            results.push_back({value, priors});
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Error in SerializedPythonState::evaluate_batch: " << e.what() << std::endl;
+        return std::vector<std::pair<double, std::vector<double>>>();
+    }
+    
+    return results;
+}
+
 py::object SerializedPythonState::find_python_move(const MCTS_move* cpp_move) const {
     // Search through cached Python moves to find the one that matches using value comparison
     for (const auto& py_move : cached_python_moves) {
