@@ -73,7 +73,7 @@ public:
     ~MCTS_tree();
     MCTS_node *select(double c=1.41);        // select child node to expand according to tree policy (UCT)
     MCTS_node *select_best_child();          // select the most promising child of the root node
-    void grow_tree(int max_iter, double max_time_in_seconds);
+    void grow_tree(int max_iter, double max_time_in_seconds, double exploration_constant = 1.41);
     void advance_tree(const MCTS_move *move);      // if the move is applicable advance the tree, else start over
     unsigned int get_size() const;
     const MCTS_state *get_current_state() const;
@@ -84,13 +84,16 @@ public:
 class MCTS_agent {                           // example of an agent based on the MCTS_tree. One can also use the tree directly.
     MCTS_tree *tree;
     int max_iter, max_seconds;
+    double exploration_constant;
 public:
-    MCTS_agent(MCTS_state *starting_state, int max_iter = 100000, int max_seconds = 30);
+    MCTS_agent(MCTS_state *starting_state, int max_iter = 100000, int max_seconds = 30, double exploration_constant = 1.41);
     ~MCTS_agent();
     const MCTS_move *genmove(const MCTS_move *enemy_move);
     const MCTS_state *get_current_state() const;
     MCTS_tree *get_tree() const { return tree; }
     void feedback() const { tree->print_stats(); }
+    void set_exploration_constant(double c);
+    double get_exploration_constant() const;
     
     // Configure parallel rollouts for this agent's tree
     void set_rollout_threads(unsigned int num_threads);

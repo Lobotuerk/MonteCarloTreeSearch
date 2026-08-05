@@ -248,7 +248,7 @@ MCTS_tree::~MCTS_tree() {
     delete root;
 }
 
-void MCTS_tree::grow_tree(int max_iter, double max_time_in_seconds) {
+void MCTS_tree::grow_tree(int max_iter, double max_time_in_seconds, double exploration_constant) {
     MCTS_node *node;
     double dt;
     #ifdef DEBUG
@@ -258,7 +258,7 @@ void MCTS_tree::grow_tree(int max_iter, double max_time_in_seconds) {
     time(&start_t);
     for (int i = 0 ; i < max_iter ; i++){
         // select node to expand according to tree policy
-        node = select();
+        node = select(exploration_constant);
         // expand it (this will perform a rollout and backpropagate the results)
         node->expand();
         // check if we need to stop
@@ -363,8 +363,8 @@ void MCTS_tree::print_stats() const { root->print_stats(); }
 
 
 /*** MCTS agent ***/
-MCTS_agent::MCTS_agent(MCTS_state *starting_state, int max_iter, int max_seconds)
-: max_iter(max_iter), max_seconds(max_seconds) {
+MCTS_agent::MCTS_agent(MCTS_state *starting_state, int max_iter, int max_seconds, double exploration_constant)
+: max_iter(max_iter), max_seconds(max_seconds), exploration_constant(exploration_constant) {
     tree = new MCTS_tree(starting_state);
 }
 
@@ -380,7 +380,7 @@ const MCTS_move *MCTS_agent::genmove(const MCTS_move *enemy_move) {
     cout << "___ DEBUG ______________________" << endl
          << "Growing tree..." << endl;
     #endif
-    tree->grow_tree(max_iter, max_seconds);
+    tree->grow_tree(max_iter, max_seconds, exploration_constant);
     #ifdef DEBUG
     cout << "Tree size: " << tree->get_size() << endl
          << "________________________________" << endl;
@@ -416,4 +416,12 @@ void MCTS_agent::set_heuristic_ratio(double ratio) {
 
 double MCTS_agent::get_heuristic_ratio() const {
     return MCTS_node::get_heuristic_ratio();
+}
+
+void MCTS_agent::set_exploration_constant(double c) {
+    exploration_constant = c;
+}
+
+double MCTS_agent::get_exploration_constant() const {
+    return exploration_constant;
 }
