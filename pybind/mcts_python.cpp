@@ -27,26 +27,37 @@ MCTS_node::MCTS_node(MCTS_node *parent, MCTS_state *state, const MCTS_move *move
     auto* tmp = state->actions_to_try();
     untried_actions.swap(*tmp);
     delete tmp;
+    
+    bool has_batch_support = false;
+    SerializedPythonState* sps_check = dynamic_cast<SerializedPythonState*>(this->state);
+    if (sps_check != nullptr) {
+        has_batch_support = py::hasattr(sps_check->get_python_state(), "evaluate_batch");
+    }
+    
     if (!untried_actions.empty()) {
-        vector<double> probs = this->state->get_action_probabilities();
-        if (!probs.empty()) {
-            vector<pair<double, MCTS_move*>> paired;
-            size_t i = 0;
-            while (!untried_actions.empty()) {
-                double p = (i < probs.size()) ? probs[i] : 1.0;
-                paired.push_back({p, untried_actions.front()});
-                untried_actions.pop();
-                i++;
-            }
-            sort(paired.begin(), paired.end(), [](const pair<double, MCTS_move*>& a, const pair<double, MCTS_move*>& b) {
-                return a.first > b.first;
-            });
-            for (auto& item : paired) {
-                untried_actions.push(item.second);
-                action_probabilities.push_back(item.first);
-            }
-       } else {
+        if (has_batch_support) {
             action_probabilities.assign(untried_actions.size(), 1.0);
+        } else {
+            vector<double> probs = this->state->get_action_probabilities();
+            if (!probs.empty()) {
+                vector<pair<double, MCTS_move*>> paired;
+                size_t i = 0;
+                while (!untried_actions.empty()) {
+                    double p = (i < probs.size()) ? probs[i] : 1.0;
+                    paired.push_back({p, untried_actions.front()});
+                    untried_actions.pop();
+                    i++;
+                }
+                sort(paired.begin(), paired.end(), [](const pair<double, MCTS_move*>& a, const pair<double, MCTS_move*>& b) {
+                    return a.first > b.first;
+                });
+                for (auto& item : paired) {
+                    untried_actions.push(item.second);
+                    action_probabilities.push_back(item.first);
+                }
+            } else {
+                action_probabilities.assign(untried_actions.size(), 1.0);
+            }
         }
     }
 }
@@ -177,7 +188,10 @@ MCTS_node *MCTS_node::select_best_child(double c) const {
         double score, max = -1e20;
         MCTS_node *argmax = NULL;
         for (auto *child : children) {
-            double winrate = child->score / ((double) child->number_of_simulations);
+            double winrate = 0.5;
+            if (child->number_of_simulations > 0) {
+                winrate = child->score / ((double) child->number_of_simulations);
+            }
             // If it's not the self side's turn, apply UCT based on opponent winrate (our loss rate)
             if (!state->is_self_side_turn()){
                 winrate = 1.0 - winrate;
@@ -233,6 +247,9 @@ MCTS_node *MCTS_tree::select(double c) {
             return node;
         } else {
             node = node->select_best_child(c);
+            if (node == NULL) {
+                break;
+            }
         }
     }
     return node;
@@ -285,8 +302,10 @@ void MCTS_tree::grow_tree(int max_iter, double max_time_in_seconds, double explo
         if (difftime(now_t, start_t) > max_time_in_seconds) break;
         
         // Wait for the queue to fill up or all threads to be parked
-        pool.pause();
         pool.wait_all_parked(5000);
+        
+        // Pause all threads to freeze the queue during evaluation
+        pool.pause();
         
         // Take the queue
         auto nodes = pool.take_queue();
@@ -297,7 +316,7 @@ void MCTS_tree::grow_tree(int max_iter, double max_time_in_seconds, double explo
             continue;
         }
         
-        // Evaluate phase: cross Python boundary once
+        // Evaluate, Backpropagate & Expand phase: hold the GIL
         std::vector<std::pair<double, std::vector<double>>> results;
         {
             py::gil_scoped_acquire gil;
@@ -322,28 +341,27 @@ void MCTS_tree::grow_tree(int max_iter, double max_time_in_seconds, double explo
                     results = root_sps_for_eval->evaluate_batch(batch_states);
                 }
             }
-        }
-        
-        // Backpropagate & expand phase
-        size_t min_size = std::min(nodes.size(), results.size());
-        for (size_t i = 0; i < min_size; i++) {
-            MCTS_node* node = nodes[i];
-            if (i < results.size()) {
-                double value = results[i].first;
-                const auto& priors = results[i].second;
-                
-                // Undo virtual loss first
-                node->remove_virtual_loss();
-                
-                // Expand with priors (AlphaZero-style)
-                node->expand_with_priors(priors);
-                
-                // Backpropagate the true neural value
-                node->backpropagate(value, 1);
+            
+            // Backpropagate & expand phase
+            size_t min_size = std::min(nodes.size(), results.size());
+            for (size_t i = 0; i < min_size; i++) {
+                MCTS_node* node = nodes[i];
+                if (i < results.size()) {
+                    double value = results[i].first;
+                    const auto& priors = results[i].second;
+                    
+                    // Undo virtual loss first
+                    node->remove_virtual_loss();
+                    
+                    // Expand with priors (AlphaZero-style, calls state->next_state which requires GIL)
+                    node->expand_with_priors(priors);
+                    
+                    // Backpropagate the true neural value
+                    node->backpropagate(value, 1);
+                }
             }
+            total_evaluated += min_size;
         }
-        
-        total_evaluated += min_size;
         
         // Clear queue and resume threads
         pool.resume();
@@ -396,26 +414,25 @@ void MCTS_node::remove_virtual_loss() {
 }
 
 void MCTS_node::expand_with_priors(const vector<double>& priors) {
-    // Mark this node as evaluated so is_fully_expanded considers it
     is_evaluated = true;
     
-    // If we have priors and untried actions, instantiate children from priors
-    if (!priors.empty() && !untried_actions.empty()) {
-        // Re-prioritize untried actions with the returned priors
-        vector<pair<double, MCTS_move*>> paired;
+    if (!untried_actions.empty()) {
         size_t i = 0;
         while (!untried_actions.empty()) {
-            double p = (i < priors.size()) ? priors[i] : 1.0;
-            paired.push_back({p, untried_actions.front()});
+            MCTS_move* next_move = untried_actions.front();
             untried_actions.pop();
+            
+            double prob = 1.0;
+            if (i < priors.size()) {
+                prob = priors[i];
+            }
+            
+            MCTS_state* next_state = state->next_state(next_move);
+            MCTS_node* child = new MCTS_node(this, next_state, next_move, true, prob);
+            delete next_state;
+            
+            children.push_back(child);
             i++;
-        }
-        sort(paired.begin(), paired.end(), [](const pair<double, MCTS_move*>& a, const pair<double, MCTS_move*>& b) {
-            return a.first > b.first;
-        });
-        for (auto& item : paired) {
-            untried_actions.push(item.second);
-            action_probabilities.push_back(item.first);
         }
     }
 }
@@ -475,7 +492,8 @@ void MCTS_tree::print_stats() const { root->print_stats(); }
 /*** SearchThreadPool implementation ***/
 
 SearchThreadPool::SearchThreadPool(MCTS_tree* tree, double exploration_constant, int num_threads)
-    : tree(tree), exploration_constant(exploration_constant), num_threads(num_threads) {
+    : tree(tree), exploration_constant(exploration_constant), num_threads(num_threads),
+      paused(false), parked_count(0), stop_flag(false) {
 }
 
 SearchThreadPool::~SearchThreadPool() {
@@ -484,9 +502,10 @@ SearchThreadPool::~SearchThreadPool() {
 
 void SearchThreadPool::search_thread_func() {
     while (!stop_flag.load()) {
-        // Wait until unpaused
-        while (!paused.load() && !stop_flag.load()) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        // Wait if the pool is paused
+        {
+            std::unique_lock<std::mutex> lock(queue_mutex);
+            cv.wait(lock, [this] { return !paused.load() || stop_flag.load(); });
         }
         
         if (stop_flag.load()) break;
@@ -495,6 +514,7 @@ void SearchThreadPool::search_thread_func() {
         MCTS_node* node = tree->select(exploration_constant);
         
         if (node == NULL) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
             continue;
         }
         
@@ -512,18 +532,21 @@ void SearchThreadPool::search_thread_func() {
         {
             std::lock_guard<std::mutex> lock(queue_mutex);
             evaluation_queue.push_back(node);
+            if (evaluation_queue.size() >= (size_t)tree->get_batch_size()) {
+                paused.store(true);
+            }
         }
         
-        // Signal that a thread is parked and wait for resume
+        // Signal that a thread is parked and wait for resume/evaluation
         parked_count.fetch_add(1, std::memory_order_relaxed);
-        paused.store(true);
-        cv.notify_one();
+        cv.notify_all();
         
-        // Wait until resumed or stopped
-        std::unique_lock<std::mutex> lock(queue_mutex);
-        cv.wait(lock, [this] { return !paused.load() || stop_flag.load(); });
+        {
+            std::unique_lock<std::mutex> lock(queue_mutex);
+            cv.wait(lock, [this] { return !paused.load() || stop_flag.load(); });
+        }
+        
         parked_count.fetch_sub(1, std::memory_order_relaxed);
-        paused.store(false);
     }
 }
 
@@ -535,17 +558,24 @@ void SearchThreadPool::start() {
 
 void SearchThreadPool::pause() {
     paused.store(true);
+    cv.notify_all();
 }
 
 bool SearchThreadPool::wait_all_parked(int timeout_ms) {
     auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
     while (std::chrono::steady_clock::now() < deadline) {
+        {
+            std::lock_guard<std::mutex> lock(queue_mutex);
+            if (evaluation_queue.size() >= (size_t)tree->get_batch_size()) {
+                return true;
+            }
+        }
         if (parked_count.load() >= num_threads) {
             return true;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
-    return parked_count.load() >= num_threads;
+    return (parked_count.load() >= num_threads || evaluation_queue.size() > 0);
 }
 
 void SearchThreadPool::resume() {

@@ -5,8 +5,30 @@
 // SerializedPythonState implementation
 SerializedPythonState::SerializedPythonState(py::object python_state) 
     : python_state(python_state) {
-    // Simple approach: just store the Python object directly
-    // C++ owns this object and will manage its lifetime
+    // Acquire the GIL since we are calling python methods to cache values
+    py::gil_scoped_acquire gil;
+    
+    try {
+        cached_is_terminal = python_state.attr("is_terminal")().cast<bool>();
+    } catch (const std::exception& e) {
+        cached_is_terminal = true;
+    }
+    
+    try {
+        cached_is_self_side_turn = python_state.attr("is_self_side_turn")().cast<bool>();
+    } catch (const std::exception& e) {
+        cached_is_self_side_turn = true;
+    }
+    
+    if (cached_is_terminal) {
+        try {
+            cached_rollout_value = python_state.attr("rollout")().cast<double>();
+        } catch (const std::exception& e) {
+            cached_rollout_value = 0.5;
+        }
+    } else {
+        cached_rollout_value = 0.5;
+    }
 }
 
 std::queue<MCTS_move*>* SerializedPythonState::actions_to_try() const {
@@ -53,21 +75,11 @@ MCTS_state* SerializedPythonState::next_state(const MCTS_move* move) const {
 }
 
 double SerializedPythonState::rollout() const {
-    try {
-        return python_state.attr("rollout")().cast<double>();
-    } catch (const std::exception& e) {
-        std::cerr << "Error in SerializedPythonState::rollout: " << e.what() << std::endl;
-        return 0.5;
-    }
+    return cached_rollout_value;
 }
 
 bool SerializedPythonState::is_terminal() const {
-    try {
-        return python_state.attr("is_terminal")().cast<bool>();
-    } catch (const std::exception& e) {
-        std::cerr << "Error in SerializedPythonState::is_terminal: " << e.what() << std::endl;
-        return true;
-    }
+    return cached_is_terminal;
 }
 
 void SerializedPythonState::print() const {
@@ -79,12 +91,7 @@ void SerializedPythonState::print() const {
 }
 
 bool SerializedPythonState::is_self_side_turn() const {
-    try {
-        return python_state.attr("is_self_side_turn")().cast<bool>();
-    } catch (const std::exception& e) {
-        std::cerr << "Error in SerializedPythonState::is_self_side_turn: " << e.what() << std::endl;
-        return true;
-    }
+    return cached_is_self_side_turn;
 }
 
 MCTS_state* SerializedPythonState::clone() const {

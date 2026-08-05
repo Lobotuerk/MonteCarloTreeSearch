@@ -99,6 +99,9 @@ class SerializedPythonState : public MCTS_state {
 private:
     py::object python_state;  // Store the Python state object
     mutable std::vector<py::object> cached_python_moves; // Keep Python moves alive
+    bool cached_is_terminal;
+    bool cached_is_self_side_turn;
+    double cached_rollout_value;
     
 public:
     SerializedPythonState(py::object python_state);
