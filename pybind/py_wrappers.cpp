@@ -5,8 +5,30 @@
 // SerializedPythonState implementation
 SerializedPythonState::SerializedPythonState(py::object python_state) 
     : python_state(python_state) {
-    // Simple approach: just store the Python object directly
-    // C++ owns this object and will manage its lifetime
+    // Acquire the GIL since we are calling python methods to cache values
+    py::gil_scoped_acquire gil;
+    
+    try {
+        cached_is_terminal = python_state.attr("is_terminal")().cast<bool>();
+    } catch (const std::exception& e) {
+        cached_is_terminal = true;
+    }
+    
+    try {
+        cached_is_self_side_turn = python_state.attr("is_self_side_turn")().cast<bool>();
+    } catch (const std::exception& e) {
+        cached_is_self_side_turn = true;
+    }
+    
+    if (cached_is_terminal) {
+        try {
+            cached_rollout_value = python_state.attr("rollout")().cast<double>();
+        } catch (const std::exception& e) {
+            cached_rollout_value = 0.5;
+        }
+    } else {
+        cached_rollout_value = 0.5;
+    }
 }
 
 std::queue<MCTS_move*>* SerializedPythonState::actions_to_try() const {
@@ -53,21 +75,11 @@ MCTS_state* SerializedPythonState::next_state(const MCTS_move* move) const {
 }
 
 double SerializedPythonState::rollout() const {
-    try {
-        return python_state.attr("rollout")().cast<double>();
-    } catch (const std::exception& e) {
-        std::cerr << "Error in SerializedPythonState::rollout: " << e.what() << std::endl;
-        return 0.5;
-    }
+    return cached_rollout_value;
 }
 
 bool SerializedPythonState::is_terminal() const {
-    try {
-        return python_state.attr("is_terminal")().cast<bool>();
-    } catch (const std::exception& e) {
-        std::cerr << "Error in SerializedPythonState::is_terminal: " << e.what() << std::endl;
-        return true;
-    }
+    return cached_is_terminal;
 }
 
 void SerializedPythonState::print() const {
@@ -79,12 +91,7 @@ void SerializedPythonState::print() const {
 }
 
 bool SerializedPythonState::is_self_side_turn() const {
-    try {
-        return python_state.attr("is_self_side_turn")().cast<bool>();
-    } catch (const std::exception& e) {
-        std::cerr << "Error in SerializedPythonState::is_self_side_turn: " << e.what() << std::endl;
-        return true;
-    }
+    return cached_is_self_side_turn;
 }
 
 MCTS_state* SerializedPythonState::clone() const {
@@ -111,6 +118,51 @@ std::vector<double> SerializedPythonState::get_action_probabilities() const {
         std::cerr << "Error in SerializedPythonState::get_action_probabilities: " << e.what() << std::endl;
     }
     return std::vector<double>();
+}
+
+std::vector<std::pair<double, std::vector<double>>> SerializedPythonState::evaluate_batch(const std::vector<MCTS_state*>& states) const {
+    std::vector<std::pair<double, std::vector<double>>> results;
+    if (states.empty()) {
+        return results;
+    }
+    
+    // Check if the Python state object has evaluate_batch method
+    if (!py::hasattr(python_state, "evaluate_batch")) {
+        return results;
+    }
+    
+    try {
+        // Build a py::list of Python state objects
+        py::list py_states;
+        for (auto* s : states) {
+            if (auto* sps = dynamic_cast<SerializedPythonState*>(s)) {
+                py_states.append(sps->python_state);
+            } else {
+                // Fallback: return empty to signal no batch support
+                return std::vector<std::pair<double, std::vector<double>>>();
+            }
+        }
+        
+        // Call the Python batch method
+        py::list py_results = python_state.attr("evaluate_batch")(py_states);
+        
+        // Parse results: each element is a tuple (value, [priors])
+        for (auto item : py_results) {
+            py::tuple entry = item.cast<py::tuple>();
+            double value = entry[0].cast<double>();
+            std::vector<double> priors;
+            py::list py_priors = entry[1].cast<py::list>();
+            for (auto p : py_priors) {
+                priors.push_back(p.cast<double>());
+            }
+            results.push_back({value, priors});
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Error in SerializedPythonState::evaluate_batch: " << e.what() << std::endl;
+        return std::vector<std::pair<double, std::vector<double>>>();
+    }
+    
+    return results;
 }
 
 py::object SerializedPythonState::find_python_move(const MCTS_move* cpp_move) const {
