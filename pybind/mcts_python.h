@@ -77,8 +77,8 @@ public:
     static unsigned int get_rollout_threads();
     
     // Virtual loss: apply/reverse virtual loss along the parent chain to prevent thread collisions
-    void apply_virtual_loss();
-    void remove_virtual_loss();
+    void apply_virtual_loss(double v);
+    void remove_virtual_loss(double v);
     
     // AlphaZero-style expansion: instantiate children from returned priors
     void expand_with_priors(const std::vector<double>& priors);
@@ -141,6 +141,7 @@ class MCTS_tree {
     MCTS_node *root;
     int batch_size;
     int num_search_threads;
+    double virtual_loss;
     friend class SearchThreadPool;
 public:
     MCTS_tree(MCTS_state *starting_state);
@@ -159,6 +160,10 @@ public:
     int get_batch_size() const { return batch_size; }
     void set_num_search_threads(int n) { num_search_threads = n; }
     int get_num_search_threads() const { return num_search_threads; }
+
+    // Virtual loss configuration
+    void set_virtual_loss(double v) { this->virtual_loss = v; }
+    double get_virtual_loss() const { return this->virtual_loss; }
 };
 
 class MCTS_agent {                           // example of an agent based on the MCTS_tree. One can also use the tree directly.
@@ -187,8 +192,12 @@ public:
     // Batched search configuration
     void set_batch_size(int size) { batch_size = size; }
     int get_batch_size() const { return batch_size; }
-    void set_num_search_threads(int n) { num_search_threads = n; }
+   void set_num_search_threads(int n) { num_search_threads = n; }
     int get_num_search_threads() const { return num_search_threads; }
+
+    // Virtual loss configuration (delegated to tree)
+    void set_virtual_loss(double v) { tree->set_virtual_loss(v); }
+    double get_virtual_loss() const { return tree->get_virtual_loss(); }
 };
 
 // Utility functions for parallel rollouts

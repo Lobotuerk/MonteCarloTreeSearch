@@ -69,8 +69,12 @@ PYBIND11_MODULE(pymcts, m, py::mod_gil_not_used()) {
         .def("get_current_state", &MCTS_node::get_current_state, 
              "Get the game state represented by this node", py::return_value_policy::reference)
         .def("print_stats", &MCTS_node::print_stats, "Print statistics about this node")
-        .def("calculate_winrate", &MCTS_node::calculate_winrate, 
-             "Calculate win rate for the specified side", py::arg("self_side_turn"));
+      .def("calculate_winrate", &MCTS_node::calculate_winrate, 
+              "Calculate win rate for the specified side", py::arg("self_side_turn"))
+        .def("apply_virtual_loss", &MCTS_node::apply_virtual_loss, py::arg("v") = 1.0,
+              "Apply virtual loss along the parent chain")
+        .def("remove_virtual_loss", &MCTS_node::remove_virtual_loss, py::arg("v") = 1.0,
+              "Remove virtual loss along the parent chain");
 
     py::class_<MCTS_tree>(m, "MCTS_tree")
         .def(py::init<MCTS_state*>(), "Create a new MCTS tree with the given starting state",
@@ -113,7 +117,9 @@ PYBIND11_MODULE(pymcts, m, py::mod_gil_not_used()) {
         .def_property("batch_size", &SafeMCTS_agent::get_batch_size, &SafeMCTS_agent::set_batch_size, 
                       "Batch size for parallel leaf evaluations (default: 64)")
         .def_property("num_search_threads", &SafeMCTS_agent::get_num_search_threads, &SafeMCTS_agent::set_num_search_threads,
-                      "Number of search threads for batched MCTS (default: 4)");
+                      "Number of search threads for batched MCTS (default: 4)")
+        .def_property("virtual_loss", &SafeMCTS_agent::get_virtual_loss, &SafeMCTS_agent::set_virtual_loss,
+                      "Virtual loss applied during batched MCTS (default: 1.0)");
 
     // TicTacToe example implementation with py::smart_holder
     py::class_<TicTacToe_move, MCTS_move, py::smart_holder>(m, "TicTacToe_move")
