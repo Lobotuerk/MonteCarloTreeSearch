@@ -1,11 +1,13 @@
 """
 Unit and integration tests for the Batched MCTS implementation.
 """
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import pymcts
+
 
 class BatchedMove(pymcts.MCTS_move):
     def __init__(self, value):
