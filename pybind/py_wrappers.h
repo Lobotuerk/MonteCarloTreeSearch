@@ -297,6 +297,10 @@ public:
     int get_batch_size() const { return agent->get_batch_size(); }
     void set_num_search_threads(int n) { agent->set_num_search_threads(n); }
     int get_num_search_threads() const { return agent->get_num_search_threads(); }
+
+    // Virtual loss configuration
+    void set_virtual_loss(double v) { agent->set_virtual_loss(v); }
+    double get_virtual_loss() const { return agent->get_virtual_loss(); }
 };
 
 #endif // PY_WRAPPERS_H

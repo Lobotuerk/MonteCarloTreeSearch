@@ -256,7 +256,7 @@ MCTS_node *MCTS_tree::select(double c) {
 }
 
 MCTS_tree::MCTS_tree(MCTS_state *starting_state)
-    : batch_size(64), num_search_threads(4) {
+    : batch_size(64), num_search_threads(4), virtual_loss(1.0) {
     assert(starting_state != NULL);
     root = new MCTS_node(NULL, starting_state, NULL, false);
 }
@@ -351,7 +351,7 @@ void MCTS_tree::grow_tree(int max_iter, double max_time_in_seconds, double explo
                     const auto& priors = results[i].second;
                     
                     // Undo virtual loss first
-                    node->remove_virtual_loss();
+                    node->remove_virtual_loss(this->get_virtual_loss());
                     
                     // Expand with priors (AlphaZero-style, calls state->next_state which requires GIL)
                     node->expand_with_priors(priors);
@@ -393,22 +393,31 @@ unsigned int MCTS_node::get_rollout_threads() {
     return num_rollout_threads;
 }
 
-void MCTS_node::apply_virtual_loss() {
+void MCTS_node::apply_virtual_loss(double v) {
     // Apply virtual loss along the entire root->leaf path
+    // Flip sign based on parent's turn to restore proper thread repulsion at MIN nodes
     MCTS_node* node = this;
     while (node != NULL) {
         node->number_of_simulations += 1;
-        node->score -= 1.0;
+        if (node->parent != NULL && !node->parent->state->is_self_side_turn()) {
+            node->score += v;
+        } else {
+            node->score -= v;
+        }
         node = node->parent;
     }
 }
 
-void MCTS_node::remove_virtual_loss() {
-    // Remove virtual loss along the entire root->leaf path
+void MCTS_node::remove_virtual_loss(double v) {
+    // Remove virtual loss along the entire root->leaf path (inverse of apply)
     MCTS_node* node = this;
     while (node != NULL) {
         node->number_of_simulations -= 1;
-        node->score += 1.0;
+        if (node->parent != NULL && !node->parent->state->is_self_side_turn()) {
+            node->score -= v;
+        } else {
+            node->score += v;
+        }
         node = node->parent;
     }
 }
@@ -527,7 +536,7 @@ void SearchThreadPool::search_thread_func() {
         }
         
         // Unexplored leaf: apply virtual loss and enqueue
-        node->apply_virtual_loss();
+        node->apply_virtual_loss(tree->get_virtual_loss());
         
         {
             std::lock_guard<std::mutex> lock(queue_mutex);

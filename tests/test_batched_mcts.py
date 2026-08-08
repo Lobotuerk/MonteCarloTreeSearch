@@ -97,7 +97,140 @@ def test_batched_mcts_execution():
     print(f"Batch calls made: {BatchedState.batch_calls}")
     print("test_batched_mcts_execution passed!")
 
+def test_minimax_repulsion_unit():
+    """At MIN parents, apply_virtual_loss should INCREASE the score (+VL sign flip)."""
+    print("test_minimax_repulsion_unit: starting")
+    from math import isclose
+
+    state = BatchedState(turn=0, moves_made=0)
+    wrapped_state = pymcts.SerializedPythonState(state)
+    agent = pymcts.MCTS_agent(wrapped_state, 10, 1)
+    agent.batch_size = 2
+    agent.num_search_threads = 1
+
+    # Run a search to build a tree
+    move = agent.genmove(None)
+    assert move is not None
+
+    # After genmove, tree.root is the best child (turn=1, MIN).
+    # Its children have parent=MIN, so apply_virtual_loss should INCREASE score.
+    root = agent.tree.root
+    assert root is not None
+    assert len(root.get_children()) > 0
+
+    # root is at turn=1 (MIN), its children have parent=MIN
+    child = root.get_children()[0]
+    original_score = child.score
+    original_visits = child.visit_count
+
+    child.apply_virtual_loss(1.0)
+    assert child.visit_count == original_visits + 1
+    # At MIN parent, score should INCREASE by exactly vl
+    assert isclose(child.score, original_score + 1.0, abs_tol=1e-9), \
+        f"Expected score {original_score + 1.0}, got {child.score}"
+
+    child.remove_virtual_loss(1.0)
+    assert child.visit_count == original_visits
+    assert isclose(child.score, original_score, abs_tol=1e-9), \
+        f"Expected score {original_score} after remove, got {child.score}"
+
+    print("test_minimax_repulsion_unit: MIN parent repulsion verified!")
+    print("test_minimax_repulsion_unit passed!")
+
+
+def test_max_node_repulsion_unit():
+    """At MAX parents, apply_virtual_loss should DECREASE the score (-VL)."""
+    print("test_max_node_repulsion_unit: starting")
+    from math import isclose
+
+    state = BatchedState(turn=0, moves_made=0)
+    wrapped_state = pymcts.SerializedPythonState(state)
+    agent = pymcts.MCTS_agent(wrapped_state, 10, 1)
+    agent.batch_size = 2
+    agent.num_search_threads = 1
+
+    # Run a search to build a tree
+    move = agent.genmove(None)
+    assert move is not None
+
+    # After genmove, tree.root is the best child (turn=1, MIN).
+    # Its children have parent=MIN, and grandchildren have parent=MAX (turn=0).
+    root = agent.tree.root
+    assert root is not None
+    assert len(root.get_children()) > 0
+
+    # root is at turn=1 (MIN), its child is at turn=0 (MAX)
+    child = root.get_children()[0]
+    grandchildren = child.get_children()
+
+    if len(grandchildren) > 0:
+        grandchild = grandchildren[0]
+        original_score = grandchild.score
+        original_visits = grandchild.visit_count
+
+        grandchild.apply_virtual_loss(1.0)
+        assert grandchild.visit_count == original_visits + 1
+        # At MAX parent (child at turn=0), score should DECREASE by exactly vl
+        assert isclose(grandchild.score, original_score - 1.0, abs_tol=1e-9), \
+            f"Expected score {original_score - 1.0}, got {grandchild.score}"
+
+        grandchild.remove_virtual_loss(1.0)
+        assert grandchild.visit_count == original_visits
+        assert isclose(grandchild.score, original_score, abs_tol=1e-9)
+        print("test_max_node_repulsion_unit: MAX parent repulsion verified!")
+    else:
+        # Fallback: root's child has parent=MIN, test that instead
+        original_score = child.score
+        original_visits = child.visit_count
+        child.apply_virtual_loss(1.0)
+        assert child.visit_count == original_visits + 1
+        assert isclose(child.score, original_score + 1.0, abs_tol=1e-9)
+        child.remove_virtual_loss(1.0)
+        assert isclose(child.score, original_score, abs_tol=1e-9)
+        print("test_max_node_repulsion_unit: no grandchildren, MIN parent verified")
+
+    print("test_max_node_repulsion_unit passed!")
+
+
+def test_virtual_loss_configurable():
+    """Verify virtual_loss can be configured on the MCTS_agent."""
+    print("test_virtual_loss_configurable: starting")
+    state = BatchedState()
+    wrapped_state = pymcts.SerializedPythonState(state)
+    agent = pymcts.MCTS_agent(wrapped_state, 10, 1)
+
+    assert agent.virtual_loss == 1.0
+    agent.virtual_loss = 2.0
+    assert agent.virtual_loss == 2.0
+    agent.virtual_loss = 0.5
+    assert agent.virtual_loss == 0.5
+
+    print("test_virtual_loss_configurable passed!")
+
+
+def test_multi_thread_integration():
+    """Run batched MCTS with num_search_threads > 1 to ensure no deadlocks."""
+    print("test_multi_thread_integration: starting")
+    BatchedState.batch_calls = 0
+    state = BatchedState()
+    wrapped_state = pymcts.SerializedPythonState(state)
+    agent = pymcts.MCTS_agent(wrapped_state, 50, 5)
+    agent.batch_size = 4
+    agent.num_search_threads = 3
+    agent.virtual_loss = 1.0
+
+    move = agent.genmove(None)
+    assert move is not None
+    assert BatchedState.batch_calls > 0
+    print(f"test_multi_thread_integration: {BatchedState.batch_calls} batch calls, no deadlock")
+    print("test_multi_thread_integration passed!")
+
+
 if __name__ == "__main__":
     print(f"Using pymcts from: {pymcts.__file__}")
     test_batched_mcts_config()
     test_batched_mcts_execution()
+    test_virtual_loss_configurable()
+    test_max_node_repulsion_unit()
+    test_minimax_repulsion_unit()
+    test_multi_thread_integration()
