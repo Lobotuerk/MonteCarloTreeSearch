@@ -170,9 +170,11 @@ py::object SerializedPythonState::find_python_move(const MCTS_move* cpp_move) co
     for (const auto& py_move : cached_python_moves) {
         try {
             MCTS_move* cached_cpp_move = py_move.cast<MCTS_move*>();
-            // Use the move's operator== for value comparison instead of pointer comparison
-            if (cached_cpp_move && cpp_move && *cached_cpp_move == *cpp_move) {
-                return py_move;
+            // Short-circuit: compare cached IDs first, then fall back to operator== on match
+            if (cached_cpp_move && cpp_move) {
+                if (cached_cpp_move->get_id() == cpp_move->get_id() && *cached_cpp_move == *cpp_move) {
+                    return py_move;
+                }
             }
         } catch (const std::exception& e) {
             // Skip this move if casting fails

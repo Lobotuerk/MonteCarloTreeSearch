@@ -6,6 +6,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <cstdint>
 
 
 using namespace std;
@@ -15,6 +16,7 @@ struct MCTS_move {
     virtual ~MCTS_move() = default;
     virtual bool operator==(const MCTS_move& other) const = 0;             // implement this!
     virtual string sprint() const { return "Not implemented"; }   // and optionally this
+    virtual uint64_t get_id() const { return 0; }
 
     // Virtual methods for Python integration
     virtual vector<double> to_numpy() const = 0;                          // Convert move to numpy array

@@ -10,6 +10,7 @@
 #include <vector>
 #include <memory>
 #include <queue>
+#include <functional>
 
 // Forward declaration of RolloutStrategy
 enum class RolloutStrategy {
@@ -29,6 +30,7 @@ class PythonMoveWrapper : public MCTS_move {
 private:
     py::object python_move;  // Keep the Python move alive
     std::string move_string; // Cached string representation
+    uint64_t cached_id_;     // Cached native integer ID for fast comparison
     
 public:
     PythonMoveWrapper(py::object py_move) : python_move(py_move) {
@@ -36,6 +38,19 @@ public:
             move_string = py_move.attr("sprint")().cast<std::string>();
         } catch (const std::exception& e) {
             move_string = "PythonMove";
+        }
+        // Compute cached_id_ once using the fallback chain
+        try {
+            // 1. Try explicit move_id attribute
+            if (py::hasattr(py_move, "move_id")) {
+                cached_id_ = py_move.attr("move_id").cast<uint64_t>();
+            } else {
+                // 2. Fall back to Python hash
+                cached_id_ = static_cast<uint64_t>(py::hash(py_move));
+            }
+        } catch (const std::exception& e) {
+            // 3. Last resort: hash of sprint() string
+            cached_id_ = std::hash<std::string>{}(move_string);
         }
     }
     
@@ -54,6 +69,10 @@ public:
     
     std::string sprint() const override {
         return move_string;
+    }
+    
+    uint64_t get_id() const override {
+        return cached_id_;
     }
     
     std::vector<double> to_numpy() const override {
