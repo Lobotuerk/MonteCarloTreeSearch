@@ -216,7 +216,7 @@ MCTS_node *MCTS_node::advance_tree(const MCTS_move *m) {
     // Find child with this m and delete all others
     MCTS_node *next = NULL;
     for (auto *child: children) {
-        if (*(child->move) == *(m)) {
+        if (child->move->get_id() == m->get_id() && *(child->move) == *(m)) {
             next = child;
         } else {
             delete child;
